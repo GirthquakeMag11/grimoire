@@ -8,8 +8,8 @@ F = TypeVar("F", bound=Callable[..., Any])
 def maybe_params(
     decorator_factory: Callable[..., Callable[[F], F]],
 ) -> Callable[..., Any]:
-    """
-    Allow a parameterized decorator to be used with or without parentheses.
+    """Allow a parameterized decorator to be used with or without
+    parentheses.
 
     Wraps a decorator factory so it can be applied as either
     @decorator or @decorator(...), using default parameters when
