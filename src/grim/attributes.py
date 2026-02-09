@@ -5,6 +5,11 @@ from types import GetSetDescriptorType
 from typing import Any, Iterator
 
 def iter_fields(obj: Any) -> Iterator[str]:
+    """Yield unique public field names discoverable from an object and its MRO.
+
+    Names are collected from instance dict, then each class in the MRO via
+    annotations, slots, and class dict keys, with duplicates removed.
+    """
     seen = set()
 
     def is_new(field):
@@ -67,6 +72,11 @@ def iter_fields(obj: Any) -> Iterator[str]:
     yield from walk_mro(obj)
 
 def iter_attributes(obj: Any) -> Iterator[str, Any]:
+    """Yield (name, value) pairs for public fields that can be read via getattr.
+
+    Skips the "mro" attribute on type objects and ignores fields that raise
+    AttributeError when accessed.
+    """
     for field in iter_fields(obj):
         if field == "mro" and isinstance(obj, type):
             continue
