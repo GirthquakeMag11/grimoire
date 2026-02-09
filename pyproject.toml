@@ -1,0 +1,7 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+filterwarnings = ["ignore::DeprecationWarning:discord"]
+asyncio_default_test_loop_scope = "module"
+asyncio_default_fixture_loop_scope = "module"
+addopts = "-v --capture=tee-sys --asyncio-debug"
