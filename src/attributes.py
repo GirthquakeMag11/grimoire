@@ -51,15 +51,15 @@ def iter_fields(obj: Any) -> Iterator[str]:
             case collections.abc.Iterable():
                 yield from validate(*slots)
 
+    def if_dict(obj):
+        if hasattr(obj, '__dict__'):
+            yield from validate(list(obj.__dict__.keys()))
+
     def walk_mro(obj):
         for cls in obj.__class__.__mro__:
             yield from if_annos(cls)
             yield from if_slots(cls)
             yield from if_dict(cls)
-
-    def if_dict(obj):
-        if hasattr(obj, '__dict__'):
-            yield from validate(list(obj.__dict__.keys()))
 
     yield from if_dict(obj)
     yield from walk_mro(obj)
