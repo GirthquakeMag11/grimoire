@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import collections.abc
 from types import GetSetDescriptorType
 from typing import Any, Iterator
 
@@ -13,7 +15,7 @@ def iter_fields(obj: Any) -> Iterator[str]:
         return False
 
     def is_public(field):
-        return not (f.startswith('_') or f.endswith('__'))
+        return not (field.startswith('_') or field.endswith('__'))
 
     def validate(*fields):
         for f in fields:
@@ -40,7 +42,7 @@ def iter_fields(obj: Any) -> Iterator[str]:
 
     def if_annos(cls):
         yield from validate(
-            list(getattr(cls, '__annotations__', {}).keys())
+            *list(getattr(cls, '__annotations__', {}).keys())
             )
 
     def if_slots(cls):
@@ -53,7 +55,7 @@ def iter_fields(obj: Any) -> Iterator[str]:
 
     def if_dict(obj):
         if hasattr(obj, '__dict__'):
-            yield from validate(list(obj.__dict__.keys()))
+            yield from validate(*list(obj.__dict__.keys()))
 
     def walk_mro(obj):
         for cls in obj.__class__.__mro__:
