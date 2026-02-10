@@ -2,7 +2,56 @@ from __future__ import annotations
 
 import collections.abc
 from types import GetSetDescriptorType
-from typing import Any, Iterator
+from typing import Any, Callable, Iterator, List
+from .utilities import update_list, update_dict
+
+
+def nested_field(field: str) -> List[str]:
+    """Convert a nested attribute name to a list of individual names.
+    Example:
+        "widget.information.name" -> ["widget", "information", "name"]
+    """
+    return [f.strip() for f in field.split('.') if f.strip()]
+
+def attrgetter(field: str) -> Callable[[Any], Any]:
+    """Create a function that will accept any object and attempt to
+    return what the 'field' parameter resolves to.
+
+    Accepts nested fields.
+    """
+    fields = nested_field(field)
+
+    def getter(obj: Any):
+        nonlocal fields
+        current_layer = obj
+        for f in fields:
+            next_layer = getattr(current_layer, f)
+        return current_layer
+
+    return getter
+
+def methodcaller(name: str, *outer_args: Any, **outer_kwargs: Any) -> Callable[[Any], Any]:
+    """Create a function that will accept any object and attempt to
+    return the result of the method 'name' resolves to.
+
+    Parameters provided will be passed along to the created function
+    but can be overridden by any parameters passed directly into it
+    along with the object.
+
+    Accepts nested fields.
+    """
+    getter = attrgetter(name)
+
+    def caller(obj: Any, *inner_args: Any, **inner_kwargs: Any) -> Any:
+        nonlocal outer_args
+        nonlocal outer_kwargs
+
+        args = update_list(outer_args, inner_args)
+        kwargs = update_dict(outer_kwargs, inner_kwargs)
+
+        return obj(*args, **kwargs)
+
+    return caller
 
 def iter_fields(obj: Any) -> Iterator[str]:
     """Yield unique public field names discoverable from an object and its MRO.
