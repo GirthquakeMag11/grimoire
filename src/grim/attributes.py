@@ -45,6 +45,7 @@ def methodcaller(name: str, *outer_args: Any, **outer_kwargs: Any) -> Callable[[
     getter = attrgetter(name)
 
     def caller(obj: Any, *inner_args: Any, **inner_kwargs: Any) -> Any:
+        nonlocal getter
         nonlocal outer_args
         nonlocal outer_kwargs
 
