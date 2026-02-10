@@ -1,18 +1,16 @@
 from __future__ import annotations
 
 import asyncio
-import threading
-import concurrent.futures
 import inspect
+import threading
 from typing import (
     Any,
-    Union,
+    Awaitable,
     Callable,
     Coroutine,
-    Awaitable,
     TypeAlias,
-    )
-
+    Union,
+)
 
 MaybeCoro: TypeAlias = Union[Callable, Coroutine, Awaitable]
 
@@ -37,7 +35,7 @@ def current_thread() -> threading.Thread:
     """Return the current thread object."""
     return threading.current_thread()
 
-def current_event_loop() -> asyncio.AbstractEventLoop | None:
+def current_event_loop() -> Union[asyncio.AbstractEventLoop, None]:
     """Return the running event loop for the current thread, if any."""
     try:
         return asyncio.get_running_loop()
@@ -46,7 +44,7 @@ def current_event_loop() -> asyncio.AbstractEventLoop | None:
 
 def ensure_event_loop() -> asyncio.AbstractEventLoop:
     """Ensure an event loop is set for the current thread and return it."""
-    if not event_loop := current_event_loop():
+    if not (event_loop := current_event_loop()):
         event_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(event_loop)
     return event_loop
