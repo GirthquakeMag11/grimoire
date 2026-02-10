@@ -21,6 +21,9 @@ def update_dict(target: Dict[Hashable, Any], source: Dict[Hashable, Any]) -> Dic
     """Replace items in 'target' dict with items from 'source' dict and
     return modified 'target' dict.
     This mutates a dict **in-place** and **does not** create a new instance.
+
+    Note:
+        Yes, this is redundant, but at least it's not bound to a class.
     """
     for key, value in source.items():
         target[key] = value
