@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import functools
-from typing import Callable, TypeVar
+from typing import Any, Callable, TypeVar
 
 F = TypeVar("F", bound=Callable[..., Any])
 
