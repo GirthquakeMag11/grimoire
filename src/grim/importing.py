@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import importlib.util
-import sys
-import sysconfig
 import types
 from pathlib import Path
-from typing import Union, Optional, TypeAlias
+from typing import Optional, TypeAlias, Union
 
 Module: TypeAlias = types.ModuleType
 
