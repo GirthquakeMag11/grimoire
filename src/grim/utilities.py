@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Hashable, List
 
+
 def update_list(target: List[Any], source: List[Any]) -> List[Any]:
     """Replace items in 'target' list with items from 'source' list and
     return modified 'target' list.
