@@ -4,6 +4,9 @@ src/grim/__init__.py
 src/grim/attributes.py
 src/grim/concurrency.py
 src/grim/decorations.py
+src/grim/files.py
+src/grim/importing.py
+src/grim/utilities.py
 src/grim.egg-info/PKG-INFO
 src/grim.egg-info/SOURCES.txt
 src/grim.egg-info/dependency_links.txt
