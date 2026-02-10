@@ -3,7 +3,8 @@ from __future__ import annotations
 import collections.abc
 from types import GetSetDescriptorType
 from typing import Any, Callable, Iterator, List
-from .utilities import update_list, update_dict
+
+from .utilities import update_dict, update_list
 
 
 def nested_field(field: str) -> List[str]:
@@ -26,6 +27,7 @@ def attrgetter(field: str) -> Callable[[Any], Any]:
         current_layer = obj
         for f in fields:
             next_layer = getattr(current_layer, f)
+            current_layer = next_layer
         return current_layer
 
     return getter
@@ -48,8 +50,9 @@ def methodcaller(name: str, *outer_args: Any, **outer_kwargs: Any) -> Callable[[
 
         args = update_list(outer_args, inner_args)
         kwargs = update_dict(outer_kwargs, inner_kwargs)
+        method = getter(obj)
 
-        return obj(*args, **kwargs)
+        return method(*args, **kwargs)
 
     return caller
 
