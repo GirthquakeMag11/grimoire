@@ -6,6 +6,7 @@ from typing import Any, Optional
 LOWERCASE_ALPHA = "abcdefghijklmnopqrstuvwxyz"
 UPPERCASE_ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 COMBINED_ALPHA = UPPERCASE_ALPHA + LOWERCASE_ALPHA
+DIGIT = "1234567890"
 
 
 def surroundedwith(string: str, start: str, end: Optional[str] = None) -> bool:
