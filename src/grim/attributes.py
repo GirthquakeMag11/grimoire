@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import collections.abc
 from types import GetSetDescriptorType
-from typing import Any, Callable, Iterator, List
+from typing import Any, Callable, Dict, Iterator, List
 
 from .utilities import update_dict, update_list
 
@@ -12,7 +12,8 @@ def nested_field(field: str) -> List[str]:
     Example:
         "widget.information.name" -> ["widget", "information", "name"]
     """
-    return [f.strip() for f in field.split('.') if f.strip()]
+    return [f.strip() for f in field.split(".") if f.strip()]
+
 
 def attrgetter(field: str) -> Callable[[Any], Any]:
     """Create a function that will accept any object and attempt to
@@ -32,7 +33,10 @@ def attrgetter(field: str) -> Callable[[Any], Any]:
 
     return getter
 
-def methodcaller(name: str, *outer_args: Any, **outer_kwargs: Any) -> Callable[[Any], Any]:
+
+def methodcaller(
+    name: str, *outer_args: Any, **outer_kwargs: Any
+) -> Callable[[Any], Any]:
     """Create a function that will accept any object and attempt to
     return the result of the method 'name' resolves to.
 
@@ -57,6 +61,7 @@ def methodcaller(name: str, *outer_args: Any, **outer_kwargs: Any) -> Callable[[
 
     return caller
 
+
 def iter_fields(obj: Any) -> Iterator[str]:
     """Yield unique public field names discoverable from an object and its MRO.
 
@@ -73,7 +78,7 @@ def iter_fields(obj: Any) -> Iterator[str]:
         return False
 
     def is_public(field):
-        return not (field.startswith('_') or field.endswith('__'))
+        return not (field.startswith("_") or field.endswith("__"))
 
     def validate(*fields):
         for f in fields:
@@ -89,7 +94,7 @@ def iter_fields(obj: Any) -> Iterator[str]:
             return True
         if any(
             hasattr(item, dm)
-            for dm in ('__get__', '__set__', '__set_name__', '__delete__')
+            for dm in ("__get__", "__set__", "__set_name__", "__delete__")
         ):
             return True
         return False
@@ -99,12 +104,10 @@ def iter_fields(obj: Any) -> Iterator[str]:
         yield from validate(*data)
 
     def if_annos(cls):
-        yield from validate(
-            *list(getattr(cls, '__annotations__', {}).keys())
-            )
+        yield from validate(*list(getattr(cls, "__annotations__", {}).keys()))
 
     def if_slots(cls):
-        slots = getattr(cls, '__slots__', ())
+        slots = getattr(cls, "__slots__", ())
         match slots:
             case str():
                 yield from validate(slots)
@@ -112,7 +115,7 @@ def iter_fields(obj: Any) -> Iterator[str]:
                 yield from validate(*slots)
 
     def if_dict(obj):
-        if hasattr(obj, '__dict__'):
+        if hasattr(obj, "__dict__"):
             yield from validate(*list(obj.__dict__.keys()))
 
     def walk_mro(obj):
@@ -123,6 +126,7 @@ def iter_fields(obj: Any) -> Iterator[str]:
 
     yield from if_dict(obj)
     yield from walk_mro(obj)
+
 
 def iter_attributes(obj: Any) -> Iterator[str, Any]:
     """Yield (name, value) pairs for public fields that can be read via getattr.
@@ -138,3 +142,22 @@ def iter_attributes(obj: Any) -> Iterator[str, Any]:
         except AttributeError:
             continue
 
+
+def to_dict(obj: Any) -> Dict[str, Any]:
+    if isinstance(obj, collections.abc.Mapping):
+        return dict(obj, type=type(obj).__name__)
+    elif isinstance(obj, collections.abc.Iterable):
+        try:
+            return dict(obj, type=type(obj).__name__)
+        except TypeError:
+            return dict(enumerate(obj), type=type(obj).__name__)
+    elif isinstance(obj, (str, bool, int, complex, bytes, type(None))):
+        return {"type": type(obj).__name__, "value": obj}
+    return dict(iter_attributes(obj), type=type(obj).__name__)
+
+
+def walk(obj: Any, *keys: str) -> List[Dict[str, Any]]:
+    layers = [to_dict(obj)]
+    for key in keys:
+        layers.append(to_dict(layers[-1].setdefault(key, {})))
+    return layers
