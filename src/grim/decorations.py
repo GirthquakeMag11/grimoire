@@ -5,6 +5,7 @@ from typing import Any, Callable, TypeVar
 
 F = TypeVar("F", bound=Callable[..., Any])
 
+
 def maybe_params(
     decorator_factory: Callable[..., Callable[[F], F]],
 ) -> Callable[..., Any]:
