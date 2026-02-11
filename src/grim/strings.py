@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from typing import Optional
+import unicodedata
+from typing import Any, Optional
 
 LOWERCASE_ALPHA = "abcdefghijklmnopqrstuvwxyz"
 UPPERCASE_ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 COMBINED_ALPHA = UPPERCASE_ALPHA + LOWERCASE_ALPHA
+
 
 def surroundedwith(string: str, start: str, end: Optional[str] = None) -> bool:
     """Return a boolean representing whether 'string' argument starts with
@@ -12,4 +14,10 @@ def surroundedwith(string: str, start: str, end: Optional[str] = None) -> bool:
 
     If end is not provided, 'start' is used in its place.
     """
-    return string.startswith(start) and string.endswith(end if end is not None else start)
+    return string.startswith(start) and string.endswith(
+        end if end is not None else start
+    )
+
+
+def normalstr(data: Any | str) -> str:
+    return unicodedata.normalize("NFC", str(data))
