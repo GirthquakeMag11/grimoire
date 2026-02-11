@@ -14,6 +14,7 @@ from typing import (
 
 MaybeCoro: TypeAlias = Union[Callable, Coroutine, Awaitable]
 
+
 def ensure_coroutine(obj: MaybeCoro, *args, **kwargs) -> Awaitable:
     """Coerce 'obj' into an awaitable, invoking or wrapping it as needed
     and return it.
@@ -27,13 +28,16 @@ def ensure_coroutine(obj: MaybeCoro, *args, **kwargs) -> Awaitable:
     elif callable(obj):
         return asyncio.to_thread(obj, *args, **kwargs)
 
+
 async def maybe_coroutine(obj: MaybeCoro, *args, **kwargs) -> Any:
     """Await an object that may be synchronous or asynchronous and return result."""
     return await ensure_coroutine(obj, *args, **kwargs)
 
+
 def current_thread() -> threading.Thread:
     """Return the current thread object."""
     return threading.current_thread()
+
 
 def current_event_loop() -> Union[asyncio.AbstractEventLoop, None]:
     """Return the running event loop for the current thread, if any."""
@@ -41,6 +45,7 @@ def current_event_loop() -> Union[asyncio.AbstractEventLoop, None]:
         return asyncio.get_running_loop()
     except RuntimeError:
         return None
+
 
 def ensure_event_loop() -> asyncio.AbstractEventLoop:
     """Ensure an event loop is set for the current thread and return it."""
