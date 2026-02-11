@@ -13,11 +13,14 @@ def update_list(target: List[Any], source: List[Any]) -> List[Any]:
             target[i] = source[i]
 
     if len(target) < len(source):
-        target.extend(source[len(target):])
+        target.extend(source[len(target) :])
 
     return target
 
-def update_dict(target: Dict[Hashable, Any], source: Dict[Hashable, Any]) -> Dict[Hashable, Any]:
+
+def update_dict(
+    target: Dict[Hashable, Any], source: Dict[Hashable, Any]
+) -> Dict[Hashable, Any]:
     """Replace items in 'target' dict with items from 'source' dict and
     return modified 'target' dict.
     This mutates a dict **in-place** and **does not** create a new instance.
