@@ -1,6 +1,6 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "drft"]
 filterwarnings = ["ignore::DeprecationWarning:discord"]
 asyncio_default_test_loop_scope = "module"
 asyncio_default_fixture_loop_scope = "module"
