@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from typing import Iterator, Tuple, Any
-from uuid import uuid4, UUID
+from typing import Any, Iterator, Optional, Tuple
+from uuid import UUID, uuid4
+
 from .attributes import iter_attributes
 
 
