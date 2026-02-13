@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import collections.abc
-from uuid import uuid4, UUID
+import inspect
 from types import GetSetDescriptorType
 from typing import Any, Callable, Dict, Iterator, List
 
@@ -143,20 +143,50 @@ def iter_attributes(obj: Any) -> Iterator[str, Any]:
         except AttributeError:
             continue
 
-def to_dict(obj: Any) -> Dict[str, Any]:
-    if isinstance(obj, (collections.abc.Mapping, collections.abc.Iterable)):
-        try:
-            return dict(obj, type=type(obj).__name__)
-        except TypeError:
-            return dict(enumerate(obj), type=type(obj).__name__)
+
+def extract_data(
+    obj: Any, metadata: bool = False, classify_attributes: bool = False
+) -> Dict[str, Any]:
+    if metadata is True:
+        data = {
+            "type": type(obj).__name__,
+            "module": type(obj).__module__,
+            "id": id(obj),
+        }
+    else:
+        data = {}
+    if isinstance(
+        obj, (collections.abc.Mapping, collections.abc.Iterable)
+    ) and not isinstance(obj, str):
+        data["data"] = obj
     elif isinstance(obj, (str, bool, int, complex, bytes, type(None))):
-        return {"type": type(obj).__name__, "value": obj}
-    return dict(iter_attributes(obj), type=type(obj).__name__)
-
-
-def walk(obj: Any, *keys: str) -> List[Dict[str, Any]]:
-    layers = [to_dict(obj)]
-    for key in keys:
-        layers.append(to_dict(layers[-1].setdefault(key, {})))
-    return layers
-
+        data["value"] = obj
+    else:
+        if classify_attributes is True:
+            data["attributes"] = {
+                "instance": {},
+                "slot": {},
+                "property": {},
+                "descriptor": {},
+            }
+            for field, value in iter_attributes(obj):
+                if field in getattr(obj, "__dict__", {}):
+                    key = "instance"
+                    continue
+                if field in getattr(type(obj), "__slots__", []):
+                    key = "slot"
+                    continue
+                raw = inspect.getattr_static(obj, field)
+                if isinstance(raw, property):
+                    key = "property"
+                    continue
+                if any(
+                    hasattr(raw, dm)
+                    for dm in ("__get__", "__set__", "__set_name__", "__delete__")
+                ):
+                    key = "descriptor"
+                    continue
+                data[key][field] = value
+        else:
+            data["attributes"] = dict(iter_attributes(obj))
+    return data
