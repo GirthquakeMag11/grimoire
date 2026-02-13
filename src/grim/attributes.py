@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import collections.abc
+from uuid import uuid4, UUID
 from types import GetSetDescriptorType
 from typing import Any, Callable, Dict, Iterator, List
 
@@ -142,11 +143,8 @@ def iter_attributes(obj: Any) -> Iterator[str, Any]:
         except AttributeError:
             continue
 
-
 def to_dict(obj: Any) -> Dict[str, Any]:
-    if isinstance(obj, collections.abc.Mapping):
-        return dict(obj, type=type(obj).__name__)
-    elif isinstance(obj, collections.abc.Iterable):
+    if isinstance(obj, (collections.abc.Mapping, collections.abc.Iterable)):
         try:
             return dict(obj, type=type(obj).__name__)
         except TypeError:
@@ -161,3 +159,4 @@ def walk(obj: Any, *keys: str) -> List[Dict[str, Any]]:
     for key in keys:
         layers.append(to_dict(layers[-1].setdefault(key, {})))
     return layers
+
