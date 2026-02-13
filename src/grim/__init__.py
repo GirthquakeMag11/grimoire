@@ -2,12 +2,11 @@ from . import (
     attributes,
     concurrency,
     importing,
-    paths,
-    sequences,
-    strings,
-    utilities,
     markov_chain,
     maybe_params,
+    paths,
+    strings,
+    utilities,
 )
 
 __all__ = [
@@ -16,10 +15,8 @@ __all__ = [
     "concurrency",
     "importing",
     "paths",
-    "sequences",
     "strings",
     "utilities",
-
     # Functions
     "markov_chain",
     "maybe_params",
