@@ -31,3 +31,14 @@ def update_dict(
     for key, value in source.items():
         target[key] = value
     return target
+
+
+def replace_none(replacement: Any):
+
+    def replacer(arg: Any):
+        nonlocal replacement
+        if arg is None:
+            return replacement
+        return arg
+
+    return replacer
