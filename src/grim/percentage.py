@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Union
+from typing import Union, NamedTuple
 
 def percentage_from_whole_and_part(part: Union[int, float], whole: Union[int, float]):
     return ((part / whole) * 100)
@@ -75,3 +75,5 @@ def percent(*args, **kwargs):
         return bool(all(calculation_comparison(whole, part, percentage)))
     if call_type == "_calculation_":
         return Percentage(ensure_percentage_params(whole, part, percentage))
+    if call_type == "_insufficient_values_":
+        raise ValueError(str(args), str(kwargs))
