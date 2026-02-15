@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-import collections.abc
 from dataclasses import InitVar, dataclass, field
-from typing import Hashable, Iterable, Sequence, TypeVar
+from typing import Hashable, Iterable, Iterator, Sequence, TypeAlias, TypeVar
 
 T = TypeVar("T", bound=Hashable)
 
+Transitions: TypeAlias = dict[T, dict[T, int]]
+Probabilities: TypeAlias = dict[T, dict[T, float]]
 
-def m_transitions(seq: Sequence[T]) -> dict[T, dict[T, int]]:
+
+def m_transitions(seq: Sequence[T]) -> Transitions[T]:
     """Count transitions between consecutive items."""
     transitions: dict[T, dict[T, int]] = {}
 
@@ -21,7 +23,7 @@ def m_transitions(seq: Sequence[T]) -> dict[T, dict[T, int]]:
     return transitions
 
 
-def m_probabilities(transitions: dict[T, dict[T, int]]) -> dict[T, dict[T, float]]:
+def m_probabilities(transitions: Transitions[T]) -> Probabilities[T]:
     """Convert transition counts to probabilities."""
     probabilities: dict[T, dict[T, float]] = {}
 
@@ -46,23 +48,13 @@ class Markov[T: Hashable]:
     data: InitVar[Iterable[T]]
 
     values: tuple[T, ...] = field(init=False)
-    transitions: dict[T, dict[T, int]] = field(init=False)
-    probabilities: dict[T, dict[T, float]] = field(init=False)
+    transitions: Transitions[T] = field(init=False)
+    probabilities: Probabilities[T] = field(init=False)
 
     def __post_init__(self, data: Iterable[T]) -> None:
         object.__setattr__(self, "values", tuple(data))
         object.__setattr__(self, "transitions", m_transitions(self.values))
         object.__setattr__(self, "probabilities", m_probabilities(self.transitions))
 
-    def __getitem__(self, key: T) -> dict[T, int]:
-        return self.probabilities.get(key, {})
-
-    def __add__(self, other) -> Markov | NotImplemented:
-        """Concatenate with another markov instance or iterable."""
-        if isinstance(other, type(self)):
-            other_values = other.values
-        elif isinstance(other, collections.abc.Iterable):
-            other_values = other
-        else:
-            return NotImplemented
-        return type(self)([*self.values, *other_values])
+    def __iter__(self) -> Iterator[T]:
+        yield from self.values
