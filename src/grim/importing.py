@@ -1,14 +1,16 @@
+"""Dynamic module importing from file paths."""
+
 from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
 from types import ModuleType
-from typing import Optional, Union
 
 
 def module_from_path(
-    module_path: Union[str, Path], module_name: Optional[str] = None
+    module_path: str | Path, module_name: str | None = None
 ) -> ModuleType:
+    """Import a Python module from a file or package directory path."""
     module_path = Path(module_path).resolve()
     if not module_name:
         module_name = str(module_path.name)
