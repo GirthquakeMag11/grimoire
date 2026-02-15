@@ -3,10 +3,13 @@ pyproject.toml
 src/grim/__init__.py
 src/grim/attributes.py
 src/grim/concurrency.py
-src/grim/decorations.py
 src/grim/importing.py
+src/grim/markov.py
+src/grim/maybe_params.py
 src/grim/paths.py
+src/grim/percentage.py
 src/grim/strings.py
+src/grim/tables.py
 src/grim/utilities.py
 src/grim.egg-info/PKG-INFO
 src/grim.egg-info/SOURCES.txt
