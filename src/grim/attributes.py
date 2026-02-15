@@ -76,7 +76,9 @@ def iter_fields(obj: Any) -> Iterator[str]:
         return False
 
     def is_public(field):
-        return not (field.startswith("_") or (field.startswith("__") and field.endswith("__")))
+        return not (
+            field.startswith("_") or (field.startswith("__") and field.endswith("__"))
+        )
 
     def validate(*fields):
         for f in fields:
@@ -172,6 +174,7 @@ def obj_metadata(obj: Any) -> dict[str, Any]:
         "module": type(obj).__module__,
         "id": id(obj),
     }
+
 
 def decompose(obj: Any, _seen: set[int] | None = None) -> dict[str, Any]:
     """Recursively decompose an object into nested dictionaries.
