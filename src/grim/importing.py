@@ -1,16 +1,14 @@
 from __future__ import annotations
 
 import importlib.util
-import types
 from pathlib import Path
-from typing import Optional, TypeAlias, Union
+from types import ModuleType
+from typing import Optional, Union
 
-Module: TypeAlias = types.ModuleType
 
-
-def import_module_from_path(
+def module_from_path(
     module_path: Union[str, Path], module_name: Optional[str] = None
-) -> Module:
+) -> ModuleType:
     module_path = Path(module_path).resolve()
     if not module_name:
         module_name = str(module_path.name)
