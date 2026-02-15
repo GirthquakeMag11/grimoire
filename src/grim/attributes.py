@@ -51,7 +51,7 @@ def methodcaller(
     getter = attrgetter(name)
 
     def caller(obj: Any, *inner_args: Any, **inner_kwargs: Any) -> Any:
-        args = update_list(outer_args, inner_args)
+        args = update_list(list(outer_args), inner_args)
         kwargs = update_dict(outer_kwargs, inner_kwargs)
         method = getter(obj)
 
@@ -176,7 +176,9 @@ def obj_metadata(obj: Any) -> dict[str, Any]:
     }
 
 
-def decompose(obj: Any, _cache: dict[int, dict[str, Any]] | None = None) -> dict[str, Any]:
+def decompose(
+    obj: Any, _cache: dict[int, dict[str, Any]] | None = None
+) -> dict[str, Any]:
     """Recursively decompose an object into nested dictionaries.
 
     Primitives become {'type': ..., 'value': ...}.
@@ -219,7 +221,6 @@ def decompose(obj: Any, _cache: dict[int, dict[str, Any]] | None = None) -> dict
         try:
             attributes[name] = decompose(value, _cache)
         except Exception as e:
-            # Skip attributes that cause issues during decomposition
             attributes[name] = {"type": type(e).__name__, "value": str(e)}
 
     result["attributes"] = attributes
