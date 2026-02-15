@@ -2,22 +2,24 @@ from . import (
     attributes,
     concurrency,
     importing,
-    markov_chain,
+    markov,
     maybe_params,
     paths,
+    percentage,
     strings,
+    tables,
     utilities,
 )
 
 __all__ = [
-    # Modules
     "attributes",
     "concurrency",
     "importing",
-    "paths",
-    "strings",
-    "utilities",
-    # Functions
-    "markov_chain",
+    "markov",
     "maybe_params",
+    "paths",
+    "percentage",
+    "strings",
+    "tables",
+    "utilities",
 ]
