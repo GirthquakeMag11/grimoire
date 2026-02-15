@@ -6,8 +6,6 @@ src/grim/concurrency.py
 src/grim/importing.py
 src/grim/markov.py
 src/grim/maybe_params.py
-src/grim/paths.py
-src/grim/percentage.py
 src/grim/strings.py
 src/grim/tables.py
 src/grim/utilities.py
