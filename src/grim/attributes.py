@@ -176,59 +176,51 @@ def obj_metadata(obj: Any) -> dict[str, Any]:
     }
 
 
-def decompose(obj: Any, _seen: set[int] | None = None) -> dict[str, Any]:
+def decompose(obj: Any, _cache: dict[int, dict[str, Any]] | None = None) -> dict[str, Any]:
     """Recursively decompose an object into nested dictionaries.
 
     Primitives become {'type': ..., 'value': ...}.
     Containers become {'type': ..., 'data': ...}.
     Complex objects become {'type': ..., 'attributes': {...}}.
 
-    Handles circular references by tracking object ids.
+    Circular references are handled by reusing the same dict for repeated objects.
+    Exceptions raised when attempting to decompose attributes are incorporated into
+        object data.
     """
-    if _seen is None:
-        _seen = set()
+    if _cache is None:
+        _cache = {}
 
     obj_id = id(obj)
     obj_type = type(obj).__name__
 
-    # Handle circular references
-    if obj_id in _seen:
-        return {"type": obj_type, "circular_reference": True, "id": obj_id}
-
-    # Primitives
     if obj is None or isinstance(obj, (bool, int, float, str, bytes)):
         return {"type": obj_type, "value": obj}
 
-    # Mark as seen for circular reference detection
-    _seen.add(obj_id)
+    if obj_id in _cache:
+        return _cache[obj_id]
 
-    try:
-        # Lists and tuples
-        if isinstance(obj, (list, tuple)):
-            data = [decompose(item, _seen) for item in obj]
-            return {"type": obj_type, "data": data}
+    result: dict[str, Any] = {"type": obj_type}
+    _cache[obj_id] = result
 
-        # Dictionaries
-        if isinstance(obj, dict):
-            data = {str(k): decompose(v, _seen) for k, v in obj.items()}
-            return {"type": obj_type, "data": data}
+    if isinstance(obj, (list, tuple)):
+        result["data"] = [decompose(item, _cache) for item in obj]
+        return result
 
-        # Sets and frozensets
-        if isinstance(obj, (set, frozenset)):
-            data = [decompose(item, _seen) for item in obj]
-            return {"type": obj_type, "data": data}
+    if isinstance(obj, dict):
+        result["data"] = {str(k): decompose(v, _cache) for k, v in obj.items()}
+        return result
 
-        # Complex objects - decompose attributes
-        attributes = {}
-        for name, value in iter_attributes(obj):
-            try:
-                attributes[name] = decompose(value, _seen)
-            except Exception:
-                # Skip attributes that cause issues during decomposition
-                attributes[name] = {"type": "error", "value": "<undecomposable>"}
+    if isinstance(obj, (set, frozenset)):
+        result["data"] = [decompose(item, _cache) for item in obj]
+        return result
 
-        return {"type": obj_type, "attributes": attributes}
+    attributes = {}
+    for name, value in iter_attributes(obj):
+        try:
+            attributes[name] = decompose(value, _cache)
+        except Exception as e:
+            # Skip attributes that cause issues during decomposition
+            attributes[name] = {"type": type(e).__name__, "value": str(e)}
 
-    finally:
-        # Remove from seen set on the way back up
-        _seen.discard(obj_id)
+    result["attributes"] = attributes
+    return result
