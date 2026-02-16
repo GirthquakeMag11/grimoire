@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any, TypeVar
+from typing import TypeVar
 
 K = TypeVar("K", bound=str | int | float | tuple[str | int | float, ...])
 T = TypeVar("T")
