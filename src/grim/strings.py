@@ -5,11 +5,10 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections import UserString
-from typing import Any, Literal
+from typing import Literal
 
 
 class UtilityString(UserString):
-
     def compile(self) -> re.Pattern[str]:
         """Compile this string as a regex pattern, memoizing the result.
 
