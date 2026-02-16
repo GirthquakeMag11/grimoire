@@ -1,20 +1,22 @@
 """
 A clean dataclass for path and file information with consistent snapshot semantics.
 """
+
 from __future__ import annotations
 
 import dataclasses
-from dataclasses import dataclass
-from pathlib import Path
-from datetime import datetime, timezone
+import mimetypes
 import os
 import stat
-import mimetypes
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
 
 # Platform-specific imports
 try:
-    import pwd
     import grp
+    import pwd
+
     HAS_UNIX_USERS = True
 except ImportError:
     HAS_UNIX_USERS = False
@@ -23,6 +25,7 @@ except ImportError:
 @dataclass(frozen=True, slots=True)
 class FileMetadata:
     """File size and timestamps."""
+
     size_bytes: int
     modified: datetime
     accessed: datetime
@@ -32,6 +35,7 @@ class FileMetadata:
 @dataclass(frozen=True, slots=True)
 class Permissions:
     """File permissions and ownership."""
+
     mode: int
     octal: str
     readable: bool
@@ -46,6 +50,7 @@ class Permissions:
 @dataclass(frozen=True, slots=True)
 class FileType:
     """Detailed file type information."""
+
     is_file: bool
     is_dir: bool
     is_symlink: bool
@@ -72,7 +77,7 @@ def create_metadata(st: os.stat_result) -> FileMetadata:
         size_bytes=st.st_size,
         modified=datetime.fromtimestamp(st.st_mtime, tz=timezone.utc),
         accessed=datetime.fromtimestamp(st.st_atime, tz=timezone.utc),
-        status_changed=datetime.fromtimestamp(st.st_ctime, tz=timezone.utc)
+        status_changed=datetime.fromtimestamp(st.st_ctime, tz=timezone.utc),
     )
 
 
@@ -107,14 +112,16 @@ def create_permissions(st: os.stat_result, path: Path) -> Permissions:
         owner=get_username(st.st_uid),
         group=get_groupname(st.st_gid),
         owner_id=st.st_uid,
-        group_id=st.st_gid
+        group_id=st.st_gid,
     )
 
 
 def create_file_type(path: Path, lst: os.stat_result) -> FileType:
     """Create FileType from path and lstat result."""
     is_file = path.is_file()
-    mime_type, mime_encoding = mimetypes.guess_type(str(path)) if is_file else (None, None)
+    mime_type, mime_encoding = (
+        mimetypes.guess_type(str(path)) if is_file else (None, None)
+    )
 
     return FileType(
         is_file=is_file,
@@ -126,7 +133,7 @@ def create_file_type(path: Path, lst: os.stat_result) -> FileType:
         is_block_device=stat.S_ISBLK(lst.st_mode),
         is_char_device=stat.S_ISCHR(lst.st_mode),
         mime_type=mime_type,
-        mime_encoding=mime_encoding
+        mime_encoding=mime_encoding,
     )
 
 
