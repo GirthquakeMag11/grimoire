@@ -5,7 +5,6 @@ from . import (
     markov,
     maybe_params,
     strings,
-    tables,
     utilities,
 )
 
@@ -16,6 +15,5 @@ __all__ = [
     "markov",
     "maybe_params",
     "strings",
-    "tables",
     "utilities",
 ]
