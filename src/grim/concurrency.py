@@ -11,9 +11,7 @@ from typing import Any, TypeAlias
 MaybeCoro: TypeAlias = Callable[..., Any] | Awaitable[Any]
 
 
-def ensure_coroutine(
-    obj: MaybeCoro, *args: Any, **kwargs: Any
-) -> Awaitable[Any]:
+def ensure_coroutine(obj: MaybeCoro, *args: Any, **kwargs: Any) -> Awaitable[Any]:
     """Coerce an object into an awaitable.
 
     Handles three cases:
