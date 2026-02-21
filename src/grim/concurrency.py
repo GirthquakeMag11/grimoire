@@ -5,8 +5,8 @@ from __future__ import annotations
 import asyncio
 import inspect
 import threading
-from collections.abc import Awaitable, Callable
-from typing import Any, TypeAlias
+from collections.abc import Awaitable, Callable, Iterable, MutableMapping
+from typing import Any, ClassVar, TypeAlias
 
 MaybeCoro: TypeAlias = Callable[..., Any] | Awaitable[Any]
 
@@ -89,7 +89,54 @@ def ensure_event_loop() -> asyncio.AbstractEventLoop:
     Returns:
         The running or newly created event loop
     """
-    if not (event_loop := current_event_loop()):
-        event_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(event_loop)
-    return event_loop
+    try:
+        return asyncio.get_running_loop()
+    except RuntimeError:
+        try:
+            return asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop
+
+
+class LoopMap:
+    """
+    Descriptor providing access to a per-thread asyncio event loop.
+
+    Retrieves an existing loop for the current thread, or locates/creates one
+    if necessary, without starting or running it.
+    """
+
+    _reg_: ClassVar[MutableMapping[int, asyncio.AbstractEventLoop]] = {}
+    _lock_: ClassVar[threading.RLock] = threading.RLock()
+
+    def __get__(self, instance, owner):
+        """Return the current thread's event loop when accessed via an instance."""
+        if instance is None:
+            return self
+        return type(self).current()
+
+    @classmethod
+    def current(cls) -> asyncio.AbstractEventLoop:
+        """
+        Return the event loop associated with the current thread.
+
+        If no valid loop is registered, attempt to retrieve an existing loop
+        or create and register a new one.
+        """
+        thread_id = threading.get_ident()
+
+        with cls._lock_:
+            if not (loop := cls.get(thread_id)):
+                cls._reg_[thread_id] = ensure_event_loop()
+                loop = cls._reg_[thread_id]
+            return loop
+
+    @classmethod
+    def get(cls, thread_id: int) -> asyncio.AbstractEventLoop | None:
+        """Return the registered event loop for a thread, if valid."""
+        loop = cls._reg_.get(thread_id)
+        if loop is None or loop.is_closed():
+            return None
+        return loop
