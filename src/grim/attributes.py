@@ -1,11 +1,8 @@
-"""Utilities for introspecting and accessing object attributes."""
-
 from __future__ import annotations
 
-import collections.abc
 import inspect
 from types import GetSetDescriptorType
-from typing import Any, Callable, Iterator, Literal
+from typing import Any, Callable, Iterator
 
 from .utilities import update_dict, update_list
 
@@ -63,70 +60,49 @@ def methodcaller(
 def iter_fields(obj: Any) -> Iterator[str]:
     """Yield unique public field names discoverable from an object and its MRO.
 
-    Names are collected from instance dict, then each class in the MRO via
-    annotations, slots, and class dict keys, with duplicates removed.
+    Names are collected from the instance dict first, then each class in the
+    MRO via descriptors, annotations, slots, and remaining class dict keys,
+    with duplicates removed.
+
+    Respects encapsulation and avoids private namespaces.
     """
-    seen = set()
+    seen: set[str] = set()
 
-    def is_new(field):
-        nonlocal seen
-        if field not in seen:
-            seen.add(field)
+    def _is_public(name: str) -> bool:
+        return not name.startswith("_")
+
+    def _yield_new_public(*names: str) -> Iterator[str]:
+        for name in names:
+            if _is_public(name) and name not in seen:
+                seen.add(name)
+                yield name
+
+    def _is_valid_descriptor(value: Any) -> bool:
+        if isinstance(value, property):
+            return not getattr(value, "__isabstractmethod__", False)
+        if isinstance(value, GetSetDescriptorType):
             return True
-        return False
-
-    def is_public(field):
-        return not (
-            field.startswith("_") or (field.startswith("__") and field.endswith("__"))
+        return any(
+            hasattr(value, dm)
+            for dm in ("__get__", "__set__", "__set_name__", "__delete__")
         )
 
-    def validate(*fields):
-        for f in fields:
-            if is_new(f) and is_public(f):
-                yield f
+    def _from_dict(o: Any) -> Iterator[str]:
+        yield from _yield_new_public(*getattr(o, "__dict__", {}).keys())
 
-    def valid_attr_item(item):
-        if isinstance(item, property) and not getattr(
-            item, "__isabstractmethod__", False
-        ):
-            return True
-        if isinstance(item, GetSetDescriptorType):
-            return True
-        if any(
-            hasattr(item, dm)
-            for dm in ("__get__", "__set__", "__set_name__", "__delete__")
-        ):
-            return True
-        return False
-
-    def if_desc(cls):
-        data = [name for name, item in dict(vars(cls)).items() if valid_attr_item(item)]
-        yield from validate(*data)
-
-    def if_annos(cls):
-        yield from validate(*list(getattr(cls, "__annotations__", {}).keys()))
-
-    def if_slots(cls):
+    def _from_class(cls: type) -> Iterator[str]:
+        cls_vars = dict(vars(cls))
+        yield from _yield_new_public(
+            *(n for n, v in cls_vars.items() if _is_valid_descriptor(v))
+        )
+        yield from _yield_new_public(*getattr(cls, "__annotations__", {}))
         slots = getattr(cls, "__slots__", ())
-        match slots:
-            case str():
-                yield from validate(slots)
-            case collections.abc.Iterable():
-                yield from validate(*slots)
+        yield from _yield_new_public(*((slots,) if isinstance(slots, str) else slots))
+        yield from _yield_new_public(*cls_vars)
 
-    def if_dict(obj):
-        if hasattr(obj, "__dict__"):
-            yield from validate(*list(obj.__dict__.keys()))
-
-    def walk_mro(obj):
-        for cls in obj.__class__.__mro__:
-            yield from if_desc(cls)
-            yield from if_annos(cls)
-            yield from if_slots(cls)
-            yield from if_dict(cls)
-
-    yield from if_dict(obj)
-    yield from walk_mro(obj)
+    yield from _from_dict(obj)
+    for cls in obj.__class__.__mro__:
+        yield from _from_class(cls)
 
 
 def iter_attributes(obj: Any) -> Iterator[tuple[str, Any]]:
@@ -142,38 +118,6 @@ def iter_attributes(obj: Any) -> Iterator[tuple[str, Any]]:
             yield (field, getattr(obj, field))
         except AttributeError:
             continue
-
-
-def classify_attribute(
-    obj: Any, field: str
-) -> Literal["dict", "slots", "property", "descriptor"] | None:
-    """Classify how an attribute is stored on an object."""
-    if field in getattr(obj, "__dict__", {}):
-        return "dict"
-    if field in getattr(type(obj), "__slots__", ()):
-        return "slots"
-    raw = inspect.getattr_static(obj, field)
-    if isinstance(raw, property):
-        return "property"
-    if any(
-        hasattr(raw, dm) for dm in ("__get__", "__set__", "__set_name__", "__delete__")
-    ):
-        return "descriptor"
-    return None
-
-
-def obj_data(obj: Any) -> dict[str, Any]:
-    """Extract all public attribute names and values as a dictionary."""
-    return dict(iter_attributes(obj))
-
-
-def obj_metadata(obj: Any) -> dict[str, Any]:
-    """Extract type, module, and id metadata from an object."""
-    return {
-        "type": type(obj).__name__,
-        "module": type(obj).__module__,
-        "id": id(obj),
-    }
 
 
 def decompose(
@@ -225,3 +169,19 @@ def decompose(
 
     result["attributes"] = attributes
     return result
+
+
+def classify_attribute(obj: Any, field: str) -> str:
+    """Classify how an attribute is stored on an object."""
+    if field in getattr(obj, "__dict__", {}):
+        return "__dict__"
+    if field in getattr(type(obj), "__slots__", ()):
+        return "__slots__"
+    raw = inspect.getattr_static(obj, field)
+    if isinstance(raw, property):
+        return "_property_"
+    if any(
+        hasattr(raw, dm) for dm in ("__get__", "__set__", "__set_name__", "__delete__")
+    ):
+        return "_descriptor_"
+    return None
