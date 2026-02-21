@@ -55,3 +55,55 @@ def update_dict(target: dict[K, T], source: Mapping[K, T]) -> dict[K, T]:
     """
     target.update(source)
     return target
+
+
+def integer_to_ordinal(i: int):
+    """
+    Convert an integer to a string representation of it's ordinal form,
+    e.g. 1 -> '1st', 153 -> '153rd', etc.
+    """
+    v = int(i) % 100
+    mod10 = v % 10
+    if (4 <= v <= 20) or (mod10 == 0) or (4 <= mod10 <= 9):
+        return f"{i!s}th"
+    if 1 <= mod10 <= 3:
+        return f"{i!s}{('st', 'nd', 'rd')[mod10 - 1]}"
+
+
+def strictiter(
+    it: Iterable[Any],
+    min_items: int = 1,
+    max_items: int | None = None,
+) -> tuple[Any, ...]:
+    """
+    Consume a bounded number of items from an iterable.
+    Raise StopIteration if too few items are available.
+    """
+    if min_items < 0:
+        raise ValueError("min_items must be non-negative")
+    if max_items is not None and max_items < min_items:
+        raise ValueError("max_items must be >= min_items")
+
+    it = iter(it)
+    items = []
+
+    for _ in range(min_items):
+        items.append(next(it))
+
+    if max_items is None:
+        items.extend(it)
+        return tuple(items)
+
+    for _ in range(max_items - min_items):
+        try:
+            items.append(next(it))
+        except StopIteration:
+            return tuple(items)
+
+    # If there's still another item, we exceeded max_items
+    try:
+        next(it)
+    except StopIteration:
+        return tuple(items)
+
+    raise ValueError("iterable contains more items than allowed")
