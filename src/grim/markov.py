@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import collections.abc.Sequence as AbstractSequence
-from contextlib import contextmanager
 from dataclasses import InitVar, dataclass, field
 from typing import Hashable, Iterable, Iterator, Sequence, TypeAlias, TypeVar
 
@@ -65,46 +63,3 @@ class MarkovChain[T: Hashable]:
 
     def __iter__(self) -> Iterator[T]:
         yield from self.values
-
-
-class MarkovSequence[T](AbstractSequence):
-    def __init__(self, *args: T):
-        self._data: list[T] = []
-        self._transitions: Transitions[T] = {}
-        self._probabilities: Probabilities[T] = {}
-        self.extend(args)
-
-    def _mark(self) -> int:
-        return len(self._data) - 1
-
-    @contextmanager
-    def _marker(self):
-        try:
-            before = len(self)
-            yield None
-        finally:
-            after = len(self)
-            if before < after:
-
-
-
-    def __len__(self) -> int:
-        return len(self._data)
-
-    def __iter__(self) -> Iterator[T]:
-        yield from self._data
-
-    def __contains__(self, item: Any) -> bool:
-        return bool(item in self._data)
-
-    def append(self, item: T) -> None:
-        with self._marker():
-            self._data.append(item)
-
-    def insert(self, index: int, item: T) -> None:
-        with self._marker():
-            self._data.insert(index, item)
-
-    def extend(self, iterable: Iterable[T]) -> None:
-        with self._marker():
-            self._data.extend(iterable)
