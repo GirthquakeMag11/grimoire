@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import inspect
 from types import GetSetDescriptorType
-from typing import Any, Callable, Iterator
+from typing import Any, Callable, Iterator, get_args, get_origin, Annotated, Union
 
 from .utilities import update_dict, update_list
 
@@ -185,3 +185,32 @@ def classify_attribute(obj: Any, field: str) -> str:
     ):
         return "_descriptor_"
     return None
+
+
+def field_is_optional(obj: Any, field: str) -> bool:
+    hints = inspect.get_type_hints(obj)
+    field_anno = hints.get(field)
+    field_origin = get_origin(field_anno)
+    if field_origin is Union:
+        field_args = get_args(field_anno)
+        return len(field_args) == 2 and None in field_args
+    return False
+
+
+def get_annotations(obj: Any, local_namespace: dict[str, Any] | None = None, global_namespace: dict[str, Any] | None = None, use_module_globals: bool = True, include_annotated_metadata: bool = True):
+    kwargs = {}
+    fallback = None
+
+    if local_namespace is not None:
+        kwargs['localns'] = local_namespace
+
+    if global_namespace is not None:
+        kwargs['globalns'] = global_namespace
+
+    if use_module_globals is True and global_namespace is not None:
+        fallback = functools.partial(get_annotations, obj, local_namespace=local_namespace, use_module_globals=True, include_annotated_metadata=include_annotated_metadata)
+
+    if include_annotated_metadata is True:
+        kwargs['include_extras'] = True
+
+    return inspect.get_type_hints(obj, **kwargs)
