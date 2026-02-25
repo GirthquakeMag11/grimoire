@@ -208,7 +208,6 @@ class EventCoordinator:
     async def wait_event_occurs(self, name: EventName) -> None:
         if name not in self.history:
             await self.wait_next_event(name)
-        return
 
     async def wait_next_event(self, name: EventName) -> None:
         async with self.incrementer(name):
