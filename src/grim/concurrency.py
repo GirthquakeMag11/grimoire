@@ -5,10 +5,13 @@ from __future__ import annotations
 import asyncio
 import inspect
 import threading
-from collections.abc import Awaitable, Callable, Iterable, MutableMapping
+from collections import defaultdict
+from collections.abc import AsyncIterator, Awaitable, Callable, Hashable, MutableMapping
+from contextlib import asynccontextmanager
 from typing import Any, ClassVar, TypeAlias
 
 MaybeCoro: TypeAlias = Callable[..., Any] | Awaitable[Any]
+EventName: TypeAlias = Hashable
 
 
 def ensure_coroutine(obj: MaybeCoro, *args: Any, **kwargs: Any) -> Awaitable[Any]:
@@ -140,3 +143,59 @@ class LoopMap:
         if loop is None or loop.is_closed():
             return None
         return loop
+
+
+class Events:
+    def __init__(self, automatic_cleanup: bool = True) -> None:
+        self._auto: bool = automatic_cleanup
+        self.events: defaultdict[asyncio.Event] = defaultdict(asyncio.Event)
+        self.waiters: defaultdict[int] = defaultdict(int)
+
+    async def event(self, name: EventName) -> asyncio.Event:
+        async with self.lock:
+            return self.events[name]
+
+    async def event_is_set(self, name: EventName) -> bool:
+        async with self.lock:
+            return self.events[name].is_set()
+
+    async def increment_waiter(self, name: EventName) -> None:
+        async with self.lock:
+            self.waiters[name] += 1
+
+    async def decrement_waiter(self, name: EventName) -> None:
+        async with self.lock:
+            self.waiters[name] -= 1
+            if self.waiters[name] <= 0:
+                del self.waiters[name]
+        if self._auto:
+            await self.clear_unwaited_events()
+
+    async def set_event(self, name: EventName) -> None:
+        async with self.lock:
+            self.events[name].set()
+
+    async def clear_event(self, name: EventName) -> None:
+        async with self.lock:
+            self.events[name].clear()
+
+    async def clear_unwaited_events(self) -> None:
+        async with self.lock:
+            for name in self.events.keys():
+                if name not in self.waiters:
+                    del self.events[name]
+
+    @asynccontextmanager
+    async def incrementer(self, name: EventName) -> AsyncIterator[None]:
+        try:
+            await self.increment_waiter(name)
+            yield None
+        finally:
+            await self.decrement_waiter(name)
+
+    async def wait_event(self, name: EventName) -> None:
+        if await self.event_is_set(name):
+            return
+        async with self.incrementer(name):
+            event = await self.event(name)
+            await event.wait()
