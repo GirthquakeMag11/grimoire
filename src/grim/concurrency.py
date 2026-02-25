@@ -103,7 +103,7 @@ def ensure_event_loop() -> asyncio.AbstractEventLoop:
             return loop
 
 
-class LoopMap:
+class LoopOrganizer:
     """
     Descriptor providing access to a per-thread asyncio event loop.
 
@@ -145,9 +145,21 @@ class LoopMap:
         return loop
 
 
-class Events:
-    def __init__(self, automatic_cleanup: bool = True) -> None:
-        self._auto: bool = automatic_cleanup
+class QueueCoordinator:
+    ...
+
+
+class ConditionCoordinator:
+    ...
+
+
+class TaskCoordinator:
+    ...
+
+
+class EventCoordinator:
+    def __init__(self) -> None:
+        self.history: list[EventName] = []
         self.events: defaultdict[asyncio.Event] = defaultdict(asyncio.Event)
         self.waiters: defaultdict[int] = defaultdict(int)
 
@@ -155,35 +167,35 @@ class Events:
         async with self.lock:
             return self.events[name]
 
-    async def event_is_set(self, name: EventName) -> bool:
-        async with self.lock:
-            return self.events[name].is_set()
-
     async def increment_waiter(self, name: EventName) -> None:
         async with self.lock:
             self.waiters[name] += 1
 
     async def decrement_waiter(self, name: EventName) -> None:
         async with self.lock:
-            self.waiters[name] -= 1
-            if self.waiters[name] <= 0:
-                del self.waiters[name]
-        if self._auto:
-            await self.clear_unwaited_events()
+            if name in self.waiters:
+                self.waiters[name] -= 1
+                if self.waiters[name] <= 0:
+                    del self.waiters[name]
+                    if name in self.events:
+                        del self.events[name]
 
     async def set_event(self, name: EventName) -> None:
         async with self.lock:
             self.events[name].set()
+            self.history.append(name)
 
     async def clear_event(self, name: EventName) -> None:
         async with self.lock:
             self.events[name].clear()
 
-    async def clear_unwaited_events(self) -> None:
+    async def remove_event(self, name: EventName) -> None:
         async with self.lock:
-            for name in self.events.keys():
-                if name not in self.waiters:
-                    del self.events[name]
+            self.events.pop(name)
+
+    async def has_occurred(self, name: EventName) -> int:
+        async with self.lock:
+            return sum(1 for i in self.history if i == name)
 
     @asynccontextmanager
     async def incrementer(self, name: EventName) -> AsyncIterator[None]:
@@ -193,9 +205,12 @@ class Events:
         finally:
             await self.decrement_waiter(name)
 
-    async def wait_event(self, name: EventName) -> None:
-        if await self.event_is_set(name):
-            return
+    async def wait_event_occurs(self, name: EventName) -> None:
+        if name not in self.history:
+            await self.wait_next_event(name)
+        return
+
+    async def wait_next_event(self, name: EventName) -> None:
         async with self.incrementer(name):
             event = await self.event(name)
             await event.wait()
