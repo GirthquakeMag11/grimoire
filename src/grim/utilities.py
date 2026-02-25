@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from typing import TypeVar
+from collections.abc import Iterable, Mapping, Sequence
+from typing import Any, TypeVar
 
 K = TypeVar("K", bound=str | int | float | tuple[str | int | float, ...])
 T = TypeVar("T")
