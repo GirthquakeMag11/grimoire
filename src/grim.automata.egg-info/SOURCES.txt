@@ -1,0 +1,9 @@
+README.md
+pyproject.toml
+src/grim.automata.egg-info/PKG-INFO
+src/grim.automata.egg-info/SOURCES.txt
+src/grim.automata.egg-info/dependency_links.txt
+src/grim.automata.egg-info/top_level.txt
+src/grim/automata/__init__.py
+src/grim/automata/cache.py
+src/grim/automata/state.py

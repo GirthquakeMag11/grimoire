@@ -78,9 +78,7 @@ def check_venv_packages(venv_path: Path, *packages: str) -> set[str]:
             text=True,
         )
         found = {
-            line.split(":", 1)[1].strip().lower()
-            for line in result.stdout.splitlines()
-            if line.startswith("Name:")
+            line.split(":", 1)[1].strip().lower() for line in result.stdout.splitlines() if line.startswith("Name:")
         }
         return {pkg for pkg in packages if pkg.lower() not in found}
     except FileNotFoundError:

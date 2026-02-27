@@ -36,9 +36,7 @@ class ReEnum(Enum):
         """Yield match objects for all non-overlapping matches."""
         yield from self.value.finditer(value)
 
-    def sub(
-        self, value: str, repl: str | Callable[[re.Match[str]], str], count: int = 0
-    ) -> str:
+    def sub(self, value: str, repl: str | Callable[[re.Match[str]], str], count: int = 0) -> str:
         """Replace matches in the string and return the result."""
         return self.value.sub(repl=repl, string=value, count=count)
 

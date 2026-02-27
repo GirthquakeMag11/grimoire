@@ -19,9 +19,7 @@ class UtilityString(UserString):
             self._compiled: re.Pattern[str] = re.compile(self.data)
         return self._compiled
 
-    def normalize(
-        self, form: Literal["NFC", "NFD", "NFKC", "NFKD"] = "NFC"
-    ) -> UtilityString:
+    def normalize(self, form: Literal["NFC", "NFD", "NFKC", "NFKD"] = "NFC") -> UtilityString:
         """Return a Unicode-normalized version, caching results per normalization form.
 
         Each normalization form (NFC, NFD, NFKC, NFKD) is cached independently,
@@ -39,9 +37,7 @@ class UtilityString(UserString):
         If back is None, uses front for both checks (e.g., checking if a string
         is wrapped in asterisks: "*text*").
         """
-        return self.startswith(front) and self.endswith(
-            back if back is not None else front
-        )
+        return self.startswith(front) and self.endswith(back if back is not None else front)
 
     def __repr__(self) -> str:
         """Return unambiguous string representation for debugging."""

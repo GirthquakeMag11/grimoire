@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import threading
-from collections.abc import Awaitable, Callable, Iterable, MutableMapping
+from collections.abc import Awaitable, Callable, MutableMapping
 from typing import Any, ClassVar, TypeAlias
 
 MaybeCoro: TypeAlias = Callable[..., Any] | Awaitable[Any]
@@ -37,9 +37,7 @@ def ensure_coroutine(obj: MaybeCoro, *args: Any, **kwargs: Any) -> Awaitable[Any
     elif callable(obj):
         return asyncio.to_thread(obj, *args, **kwargs)
     else:
-        raise TypeError(
-            f"Expected coroutine function, awaitable, or callable, got {type(obj)}"
-        )
+        raise TypeError(f"Expected coroutine function, awaitable, or callable, got {type(obj)}")
 
 
 async def maybe_coroutine(obj: MaybeCoro, *args: Any, **kwargs: Any) -> Any:

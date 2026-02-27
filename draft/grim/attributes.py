@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import inspect
 from types import GetSetDescriptorType
-from typing import Any, Callable, Iterator, get_args, get_origin, Annotated, Union
+from typing import Any, Callable, Iterator, Union, get_args, get_origin
 
 from .utilities import update_dict, update_list
 
@@ -33,9 +33,7 @@ def attrgetter(field: str) -> Callable[[Any], Any]:
     return getter
 
 
-def methodcaller(
-    name: str, *outer_args: Any, **outer_kwargs: Any
-) -> Callable[[Any], Any]:
+def methodcaller(name: str, *outer_args: Any, **outer_kwargs: Any) -> Callable[[Any], Any]:
     """Create a function that will accept any object and attempt to
     return the result of the method 'name' resolves to.
 
@@ -82,19 +80,14 @@ def iter_fields(obj: Any) -> Iterator[str]:
             return not getattr(value, "__isabstractmethod__", False)
         if isinstance(value, GetSetDescriptorType):
             return True
-        return any(
-            hasattr(value, dm)
-            for dm in ("__get__", "__set__", "__set_name__", "__delete__")
-        )
+        return any(hasattr(value, dm) for dm in ("__get__", "__set__", "__set_name__", "__delete__"))
 
     def _from_dict(o: Any) -> Iterator[str]:
         yield from _yield_new_public(*getattr(o, "__dict__", {}).keys())
 
     def _from_class(cls: type) -> Iterator[str]:
         cls_vars = dict(vars(cls))
-        yield from _yield_new_public(
-            *(n for n, v in cls_vars.items() if _is_valid_descriptor(v))
-        )
+        yield from _yield_new_public(*(n for n, v in cls_vars.items() if _is_valid_descriptor(v)))
         yield from _yield_new_public(*getattr(cls, "__annotations__", {}))
         slots = getattr(cls, "__slots__", ())
         yield from _yield_new_public(*((slots,) if isinstance(slots, str) else slots))
@@ -120,9 +113,7 @@ def iter_attributes(obj: Any) -> Iterator[tuple[str, Any]]:
             continue
 
 
-def decompose(
-    obj: Any, _cache: dict[int, dict[str, Any]] | None = None
-) -> dict[str, Any]:
+def decompose(obj: Any, _cache: dict[int, dict[str, Any]] | None = None) -> dict[str, Any]:
     """Recursively decompose an object into nested dictionaries.
 
     Primitives become {'type': ..., 'value': ...}.
@@ -180,9 +171,7 @@ def classify_attribute(obj: Any, field: str) -> str:
     raw = inspect.getattr_static(obj, field)
     if isinstance(raw, property):
         return "_property_"
-    if any(
-        hasattr(raw, dm) for dm in ("__get__", "__set__", "__set_name__", "__delete__")
-    ):
+    if any(hasattr(raw, dm) for dm in ("__get__", "__set__", "__set_name__", "__delete__")):
         return "_descriptor_"
     return None
 
@@ -195,22 +184,3 @@ def field_is_optional(obj: Any, field: str) -> bool:
         field_args = get_args(field_anno)
         return len(field_args) == 2 and None in field_args
     return False
-
-
-def get_annotations(obj: Any, local_namespace: dict[str, Any] | None = None, global_namespace: dict[str, Any] | None = None, use_module_globals: bool = True, include_annotated_metadata: bool = True):
-    kwargs = {}
-    fallback = None
-
-    if local_namespace is not None:
-        kwargs['localns'] = local_namespace
-
-    if global_namespace is not None:
-        kwargs['globalns'] = global_namespace
-
-    if use_module_globals is True and global_namespace is not None:
-        fallback = functools.partial(get_annotations, obj, local_namespace=local_namespace, use_module_globals=True, include_annotated_metadata=include_annotated_metadata)
-
-    if include_annotated_metadata is True:
-        kwargs['include_extras'] = True
-
-    return inspect.get_type_hints(obj, **kwargs)

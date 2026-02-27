@@ -63,9 +63,7 @@ def maybe_params(
                 # Direct decoration: @decorator
                 decorator = decorator_factory()
                 return decorator(target)
-            raise TypeError(
-                "Decorator used without parentheses must be applied to a callable"
-            )
+            raise TypeError("Decorator used without parentheses must be applied to a callable")
         # Factory invocation: @decorator(...)
         return decorator_factory(*args, **kwargs)
 
