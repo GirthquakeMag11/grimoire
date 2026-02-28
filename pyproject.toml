@@ -4,7 +4,13 @@ pythonpath = ["src"]
 filterwarnings = ["ignore::DeprecationWarning:discord"]
 asyncio_default_test_loop_scope = "module"
 asyncio_default_fixture_loop_scope = "module"
-addopts = "-v --capture=tee-sys --asyncio-debug"
+addopts = "-v --capture=tee-sys --asyncio-debug --cov=src --cov-report=term-missing"
+
+[tool.coverage.report]
+fail_under = 80
+
+[tool.coverage.run]
+branch = true
 
 [tool.mypy]
 strict = true
@@ -16,3 +22,5 @@ warn_unused_ignores = true
 
 [tool.ruff]
 line-length = 120
+indent-width = 4
+exclude = ["draft"]
