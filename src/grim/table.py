@@ -20,4 +20,4 @@ class Table(UserDict):
         return Row(key, dict(iter_attributes(self.data[key])))
 
     def column(self, name: str):
-        return Column(name, dict({u_id: getattr(val, name) for u_id, item in self.data.items() if hasattr(item, name)}))
+        return Column(name, dict({u_id: getattr(item, name) for u_id, item in self.data.items() if hasattr(item, name)}))
