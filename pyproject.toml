@@ -18,9 +18,11 @@ files = ["src", "tests"]
 show_error_codes = true
 show_column_numbers = true
 pretty = true
-warn_unused_ignores = true
 
 [tool.ruff]
-line-length = 120
+line-length = 100
 indent-width = 4
 exclude = ["draft"]
+
+[tool.ruff.lint]
+preview = true
