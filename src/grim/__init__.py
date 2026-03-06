@@ -1,3 +1,4 @@
+from . import table
 from .inspection import (
     classify_attribute,
     decompose,
@@ -6,8 +7,6 @@ from .inspection import (
     iter_attributes,
     iter_fields,
 )
-from .strings import UtilityString
-from .table import Column, Row
 
 __all__ = [
     "iter_fields",
@@ -16,7 +15,5 @@ __all__ = [
     "dict_attributes",
     "classify_attribute",
     "field_is_optional",
-    "UtilityString",
-    "Column",
-    "Row",
+    "table",
 ]
