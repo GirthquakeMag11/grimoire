@@ -1,23 +1,18 @@
-from collections import UserDict
-from collections.abc import Hashable
-from dataclasses import dataclass, field
+from collections.abc import Hashable, Mapping
+from typing import Any
 
-from .inspection import iter_attributes
+from .inspection import dict_attributes
 
-@dataclass
+
 class Column:
-    name: str
-    data: dict[Hashable, Any]
+    def __init__(self, table: Mapping[Hashable, Any], name: str) -> None:
+        self.name: str = name
+        self.data: dict[Hashable, Any] = {
+            key: getattr(value, name) for key, value in table.items() if hasattr(value, name)
+        }
 
-@dataclass
+
 class Row:
-    key: Hashable
-    data: dict[str, Any]
-
-class Table(UserDict):
-
-    def row(self, key: Hashable):
-        return Row(key, dict(iter_attributes(self.data[key])))
-
-    def column(self, name: str):
-        return Column(name, dict({u_id: getattr(item, name) for u_id, item in self.data.items() if hasattr(item, name)}))
+    def __init__(self, table: Mapping[Hashable, Any], key: Hashable) -> None:
+        self.key: Hashable = key
+        self.data: dict[str, Any] = dict_attributes(table[key])
