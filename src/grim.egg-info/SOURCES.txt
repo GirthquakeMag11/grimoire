@@ -1,0 +1,11 @@
+README.md
+pyproject.toml
+src/grim/__init__.py
+src/grim/inspection.py
+src/grim/strings.py
+src/grim/table.py
+src/grim.egg-info/PKG-INFO
+src/grim.egg-info/SOURCES.txt
+src/grim.egg-info/dependency_links.txt
+src/grim.egg-info/top_level.txt
+tests/test_main.py
