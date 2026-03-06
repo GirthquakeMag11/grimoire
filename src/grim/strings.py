@@ -5,7 +5,12 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections import UserString
-from typing import Literal
+from typing import Any, Literal
+
+
+def _reassert(val: Any) -> UtilityString:
+    assert isinstance(val, UtilityString)
+    return val
 
 
 class UtilityString(UserString):
@@ -29,7 +34,7 @@ class UtilityString(UserString):
         if not hasattr(self, attr_name):
             normalized = unicodedata.normalize(form, self.data)
             setattr(self, attr_name, UtilityString(normalized))
-        return getattr(self, attr_name)
+        return _reassert(getattr(self, attr_name))
 
     def surroundedwith(self, front: str, back: str | None = None) -> bool:
         """Check if string starts with front and ends with back.
