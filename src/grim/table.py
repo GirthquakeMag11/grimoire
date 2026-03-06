@@ -1,39 +1,47 @@
-from collections.abc import Hashable, MutableMapping
+from collections import UserDict
+from collections.abc import Hashable, Mapping
 from types import MappingProxyType
 from typing import Any
-from uuid import UUID, uuid4
 
 from .inspection import dict_attributes
 
 _MISSING = object()
 
 
-class Table[K: Hashable, V](MutableMapping[K, V]):
-    def __init__(self) -> None:
-        self.data: dict[K, V] = {}
+def column[K, V](
+    data: Mapping[K, V],
+    name: str,
+    *,
+    fill_value: Any = _MISSING,
+) -> MappingProxyType[K, Any]:
+    if fill_value is _MISSING:
+        result = {key: getattr(value, name) for key, value in data.items() if hasattr(value, name)}
+    else:
+        result = {key: getattr(value, name, fill_value) for key, value in data.items()}
+    return MappingProxyType(result)
 
-    def set(self, key: K, value: V) -> K:
-        self.data[key] = value
-        return key
 
-    def add(self, value: V) -> K:
-        new_id = uuid4()
-        self.set(new_id, value)
-        return new_id
+def row[K, V](data: Mapping[K, V], key: K) -> MappingProxyType[str, V]:
+    return MappingProxyType(dict_attributes(data[key]))
 
-    def pop(self, key: K, default: Any | None = None) -> V | Any | None:
-        return self.data.get(key, default)
 
-    def column(self, name: str, *, fill_value: Any = _MISSING) -> MappingProxyType[K, V]:
-        if fill_value is _MISSING:
-            data = {
-                key: getattr(value, name)
-                for key, value in self.data.items()
-                if hasattr(value, name)
-            }
-        else:
-            data = {key: getattr(value, name, fill_value) for key, value in self.data.items()}
-        return MappingProxyType(data)
+class Table[K: Hashable, V](UserDict[K, V]):
+    def __init__(self, fill_value: Any = _MISSING) -> None:
+        if fill_value is not _MISSING:
+            self._fill_value: Any = fill_value
+        super().__init__()
+
+    def set_fill_value(self, value: Any) -> None:
+        setattr(self, "_fill_value", value)
+
+    def clear_fill_value(self) -> None:
+        if hasattr(self, "_fill_value"):
+            delattr(self, "_fill_value")
+
+    def column(self, name: str, *, fill_value: Any = _MISSING) -> MappingProxyType[K, Any]:
+        if fill_value is _MISSING and hasattr(self, "_fill_value"):
+            fill_value = self._fill_value
+        return column(data=self.data, name=name, fill_value=fill_value)
 
     def row(self, key: K) -> MappingProxyType[str, V]:
-        return MappingProxyType(dict_attributes(self.data[key]))
+        return row(data=self.data, key=key)
