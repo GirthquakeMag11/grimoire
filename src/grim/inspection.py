@@ -1,4 +1,7 @@
-from collections.abc import Any, Iterator
+import inspect
+from collections.abc import Iterator
+from typing import Any, Union, get_args, get_origin, get_type_hints
+
 
 def iter_fields(obj: Any) -> Iterator[str]:
     """Yield unique public field names discoverable from an object and its MRO.
@@ -23,7 +26,9 @@ def iter_fields(obj: Any) -> Iterator[str]:
     def _is_valid_descriptor(value: Any) -> bool:
         if isinstance(value, property):
             return not getattr(value, "__isabstractmethod__", False)
-        return any(hasattr(value, dm) for dm in ("__get__", "__set__", "__set_name__", "__delete__"))
+        return any(
+            hasattr(value, dm) for dm in ("__get__", "__set__", "__set_name__", "__delete__")
+        )
 
     def _from_dict(o: Any) -> Iterator[str]:
         yield from _yield_new_public(*getattr(o, "__dict__", {}).keys())
@@ -54,6 +59,10 @@ def iter_attributes(obj: Any) -> Iterator[tuple[str, Any]]:
             yield (field_name, getattr(obj, field_name))
         except AttributeError:
             continue
+
+
+def dict_attributes(obj: Any) -> dict[str, Any]:
+    return dict(iter_attributes(obj))
 
 
 def decompose(obj: Any, _cache: dict[int, dict[str, Any]] | None = None) -> dict[str, Any]:
@@ -116,11 +125,11 @@ def classify_attribute(obj: Any, field: str) -> str:
         return "_property_"
     if any(hasattr(raw, dm) for dm in ("__get__", "__set__", "__set_name__", "__delete__")):
         return "_descriptor_"
-    return None
+    raise ValueError(field)
 
 
 def field_is_optional(obj: Any, field: str) -> bool:
-    hints = inspect.get_type_hints(obj)
+    hints = get_type_hints(obj)
     field_anno = hints.get(field)
     field_origin = get_origin(field_anno)
     if field_origin is Union:
