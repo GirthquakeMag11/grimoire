@@ -83,3 +83,10 @@ class DistinctSequence[T](AbstractMutableSequence[T]):
 
     def count(self, value: T) -> int:
         return self._data.count(value)
+
+    def iter_transitions(
+        self, start: int = 0, stop: int = -1, step: int = 1
+    ) -> Iterator[tuple[T, T]]:
+        sample = self._data[slice(start, stop, step)]
+        for i in range(len(sample) - 1):
+            yield (sample[i], sample[i + 1])
