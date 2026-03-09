@@ -3,14 +3,42 @@ from __future__ import annotations
 from collections.abc import (
     Iterable,
     Iterator,
+    MutableMapping,
+    MutableSequence,
 )
-from collections.abc import (
-    MutableSequence as AbstractMutableSequence,
+from typing import (
+    Self,
+    cast,
+    overload,
+    runtime_checkable,
+    Protocol
 )
-from typing import Self, cast, overload
 
+@runtime_checkable
+class SupportsSorting(Protocol):
+    def __lt__(self, other: object, /) -> bool: ...
+    def __le__(self, other: object, /) -> bool: ...
 
-class DistinctSequence[T](AbstractMutableSequence[T]):
+class ContinuousSequence[K: SupportsSorting, V](MutableMapping[K, V]):
+    def __init__(self) -> None:
+        self._data: dict[K, V] = {}
+
+    def __setitem__(self, key: K, value: V) -> None:
+        self._data[key] = value
+
+    def __getitem__(self, key: K) -> V:
+        return self._data[key]
+
+    def __delitem__(self, key: K) -> None:
+        del self._data[key]
+
+    def __iter__(self) -> Iterator[K]:
+        return iter(sorted(self._data))
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+class DistinctSequence[T](MutableSequence[T]):
     def __init__(self, data: Iterable[T] = ()) -> None:
         self._data: list[T] = list(data)
 
