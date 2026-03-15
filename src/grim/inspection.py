@@ -112,27 +112,3 @@ def decompose(obj: Any, _cache: dict[int, dict[str, Any]] | None = None) -> dict
 
     result["attributes"] = attributes
     return result
-
-
-def classify_attribute(obj: Any, field: str) -> str:
-    """Classify how an attribute is stored on an object."""
-    if field in getattr(obj, "__dict__", {}):
-        return "__dict__"
-    if field in getattr(type(obj), "__slots__", ()):
-        return "__slots__"
-    raw = inspect.getattr_static(obj, field)
-    if isinstance(raw, property):
-        return "_property_"
-    if any(hasattr(raw, dm) for dm in ("__get__", "__set__", "__set_name__", "__delete__")):
-        return "_descriptor_"
-    raise ValueError(field)
-
-
-def field_is_optional(obj: Any, field: str) -> bool:
-    hints = get_type_hints(obj)
-    field_anno = hints.get(field)
-    field_origin = get_origin(field_anno)
-    if field_origin is Union:
-        field_args = get_args(field_anno)
-        return len(field_args) == 2 and None in field_args
-    return False
