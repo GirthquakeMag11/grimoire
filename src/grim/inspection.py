@@ -1,6 +1,5 @@
-import inspect
 from collections.abc import Iterator
-from typing import Any, Union, get_args, get_origin, get_type_hints
+from typing import Any
 
 
 def iter_fields(obj: Any) -> Iterator[str]:
@@ -26,9 +25,11 @@ def iter_fields(obj: Any) -> Iterator[str]:
     def _is_valid_descriptor(value: Any) -> bool:
         if isinstance(value, property):
             return not getattr(value, "__isabstractmethod__", False)
-        has_get = callable(getattr(class_raw, "__get__", None))
-        has_set_del = callable(getattr(class_raw, "__set__", None)) or callable(getattr(class_raw, "__delete__", None))
-        return (has_get and has_set_del)
+        has_get = callable(getattr(value, "__get__", None))
+        has_set_del = callable(getattr(value, "__set__", None)) or callable(
+            getattr(value, "__delete__", None)
+        )
+        return has_get and has_set_del
 
     def _from_dict(o: Any) -> Iterator[str]:
         yield from _yield_new_public(*getattr(o, "__dict__", {}).keys())
@@ -59,68 +60,6 @@ def iter_attributes(obj: Any) -> Iterator[tuple[str, Any]]:
             yield (field_name, getattr(obj, field_name))
         except AttributeError:
             continue
-
-
-def classify_field(obj: object, field: str) -> Literal["dict", "slots", "property", "data_descriptor", "non_data_descriptor"]:
-    """
-    Classify how an attribute is stored or resolved on an object.
-
-    Mirrors Python's attribute lookup priority:
-        data descriptors  >  instance __dict__ / slots  >  non-data descriptors
-
-    Returns:
-        "dict"                  – stored in the instance's __dict__
-        "slots"                 – stored via a __slots__ member (anywhere in the MRO)
-        "property"              – a property descriptor on the class
-        "data_descriptor"       – descriptor with __get__ and __set__ or __delete__
-        "non_data_descriptor"   – descriptor with only __get__
-
-    Raises:
-        AttributeError: if the field does not exist on the object at all.
-        ValueError:     if the field exists but has no recognised storage kind
-                        (e.g. a plain class variable with no descriptor protocol).
-    """
-    _MISSING = object()
-
-    cls = type(obj)
-    class_raw: object = _MISSING
-    in_slots: bool = False
-
-    for _class in cls.__mro__:
-        if class_raw is _MISSING and field in _class.__dict__:
-            class_raw = _class.__dict__[field]
-        if not in_slots and field in getattr(_class, "__slots__", ()):
-            in_slots = True
-        if class_raw is not _MISSING and in_slots:
-            break
-
-    if class_raw is not _MISSING:
-        if isinstance(class_raw, property):
-            return "property"
-
-        has_get = callable(getattr(class_raw, "__get__", None))
-        has_set_del = callable(getattr(class_raw, "__set__", None)) or callable(getattr(class_raw, "__delete__", None))
-        if has_get and has_set_del:
-            return "data_descriptor"
-
-    if field in getattr(obj, "__dict__", {}):
-        return "dict"
-
-    if in_slots is True:
-        return True
-
-    if class_raw is not _MISSING and callable(getattr(class_raw, "__get__", None)):
-        return "non_data_descriptor"
-
-    if class_raw is _MISSING:
-        raise AttributeError(
-            f"{cls.__name__!r} object has no attribute {field!r}"
-        )
-
-    raise ValueError(
-        f"field {field!r} on {cls.__name__!r} has no recognised storage kind "
-        f"(raw type: {type(class_raw).__name__!r})"
-    )
 
 
 def decompose(obj: Any, _cache: dict[int, dict[str, Any]] | None = None) -> dict[str, Any]:
