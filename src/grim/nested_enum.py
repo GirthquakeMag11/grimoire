@@ -141,6 +141,7 @@ class NestedEnumMeta(EnumMeta):
         causes EnumMeta to store the nested class as a plan attribute rather than
         an enum member. Accessing it normally still returns the class iself.
         """
+        return cls
 
     def __set_name__(cls, owner: type, name: str) -> None:
         """
@@ -153,17 +154,18 @@ class NestedEnumMeta(EnumMeta):
 
     def __instancecheck__(cls, instance: object) -> bool:
         # Standard check covers the direct enum (e.g. ExampleEnum.MEMBER -> ExampleEnum)
-        if super().__instance__(instance):
+        if super().__instancecheck__(instance):
             return True
         # Walk up the nested parent chain of the instance's own enum class
         inst_type = type(instance)
         if isinstance(inst_type, NestedEnumMeta):
-            parent: NestedEnumMeta | None = inst_type._nested_parent
+            parent: NestedEnumMeta | None = inst_type._nested_parent  # type: ignore[attr-defined]
             while parent is not None:
                 if parent is cls:
                     return True
                 parent = parent._nested_parent
         return False
+
 
 class NestedEnum(Enum, metaclass=NestedEnumMeta):
     """Base class for enums that propogate isinstance checks up the nesting hierarchy."""
