@@ -1,112 +1,6 @@
-"""
-nested_enum.py
-==============
-Provides NestedEnum and NestedEnumMeta, enabling deeply nested enum hierarchies
-where isinstance checks propagate upward through every ancestor class in the
-nesting chain.
-
-
-Overview
---------
-Standard Python Enum subclasses defined inside another enum are not treated as
-members — they become plain class attributes. NestedEnum builds on that behaviour
-to additionally record each nested class's parent, so that isinstance(member,
-ancestor) returns True all the way up the chain.
-
-
-Defining a Hierarchy
---------------------
-Subclass NestedEnum at every level. Leaf members are declared exactly as they
-would be in a standard Enum:
-
-    class EventType(NestedEnum):
-        class UserEvents(NestedEnum):
-            class Interaction(NestedEnum):
-                NEW    = "new"
-                EDIT   = "edit"
-                DELETE = "delete"
-
-            class Navigation(NestedEnum):
-                PAGE_VIEW = "page_view"
-                BACK      = "back"
-
-
-isinstance Checks
------------------
-A leaf member is an instance of its own class and every ancestor up to the root:
-
-    event = EventType.UserEvents.Interaction.NEW
-
-    isinstance(event, EventType.UserEvents.Interaction)  # True  — direct class
-    isinstance(event, EventType.UserEvents)              # True  — one level up
-    isinstance(event, EventType)                         # True  — two levels up
-
-Members in a different branch of the same hierarchy are not matched:
-
-    isinstance(event, EventType.UserEvents.Navigation)   # False — wrong branch
-
-
-Structural Pattern Matching
----------------------------
-Two pattern forms are available inside a match block:
-
-Value pattern — matches one exact member using ==:
-
-    match event:
-        case EventType.UserEvents.Interaction.NEW:
-            ...  # only this specific member
-
-Class pattern — matches any member for which isinstance returns True, meaning
-the whole subtree rooted at that class:
-
-    match event:
-        case EventType.UserEvents.Interaction.NEW:
-            ...  # exact member first
-        case EventType.UserEvents.Interaction():
-            ...  # any other Interaction member
-        case EventType.UserEvents.Navigation():
-            ...  # any Navigation member
-        case EventType.UserEvents():
-            ...  # any remaining UserEvents member
-        case _:
-            ...  # anything else
-
-WARNING: Class patterns must be ordered from most specific to least specific.
-A broader ancestor pattern (e.g. EventType.UserEvents()) will silently shadow
-all more specific patterns that follow it, because isinstance returns True for
-every descendant. Python does not emit a warning for unreachable case branches.
-
-
-Accessing Members
------------------
-Members are accessed by traversing the nesting path, exactly as with nested
-class attributes:
-
-    EventType.UserEvents.Interaction.NEW    # <Interaction.NEW: 'new'>
-    EventType.UserEvents.Navigation.BACK    # <Navigation.BACK: 'back'>
-
-Standard enum conveniences work normally on any leaf class:
-
-    list(EventType.UserEvents.Interaction)       # [NEW, EDIT, DELETE]
-    EventType.UserEvents.Interaction["EDIT"]     # <Interaction.EDIT: 'edit'>
-    EventType.UserEvents.Interaction("delete")   # <Interaction.DELETE: 'delete'>
-
-
-Limitations
------------
-- Only leaf classes (those that actually declare members) should contain enum
-  values. Intermediate classes (EventType, UserEvents) are structural containers
-  and should remain empty of members.
-
-- Multiple inheritance involving two separate NestedEnum roots is not supported;
-  _nested_parent tracks a single linear chain.
-
-- Iterating over an intermediate class (e.g. list(EventType)) yields an empty
-  sequence — only leaf classes are iterable in the usual enum sense.
-"""
-
 from __future__ import annotations
 
+from collections.abc import Iterator
 from enum import Enum, EnumMeta
 from typing import Any
 
@@ -165,6 +59,18 @@ class NestedEnumMeta(EnumMeta):
                     return True
                 parent = parent._nested_parent
         return False
+
+    def children(cls) -> Iterator[NestedEnumMeta]:
+        """Yield the immediate nested NestedEnum subclasses of this class."""
+        for val in vars(cls).values():
+            if isinstance(val, NestedEnumMeta):
+                yield val
+
+    def walk(cls) -> Iterator[NestedEnum]:
+        """Yield all leaf members in the subtree rooted at this class, depth-first."""
+        yield from cls
+        for child in cls.children():
+            yield from child.walk()
 
 
 class NestedEnum(Enum, metaclass=NestedEnumMeta):
