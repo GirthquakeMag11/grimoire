@@ -3,7 +3,7 @@ from collections.abc import Hashable, Mapping
 from types import MappingProxyType
 from typing import Any
 
-from .inspection import dict_attributes
+from .inspection import iter_attributes
 
 _MISSING = object()
 
@@ -22,7 +22,7 @@ def column[K, V](
 
 
 def row[K, V](data: Mapping[K, V], key: K) -> MappingProxyType[str, V]:
-    return MappingProxyType(dict_attributes(data[key]))
+    return MappingProxyType(dict(iter_attributes(data[key])))
 
 
 class Table[K: Hashable, V](UserDict[K, V]):
