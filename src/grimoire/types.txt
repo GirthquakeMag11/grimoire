@@ -1,0 +1,81 @@
+
+typing taxonomy
+
+_AnyMeta
+ Any
+
+_ProtocolMeta
+ Protocol
+ SupportsInt
+ SupportsFloat
+ SupportsComplex
+ SupportsBytes
+ SupportsIndex
+ SupportsAbs
+ SupportsRound
+
+_SpecialForm
+ NoReturn
+ Never
+ Self
+ LiteralString
+ ClassVar
+ Final
+ Union
+ Optional
+ TypeAlias
+ Concatenate
+ TypeGuard
+ TypeIs
+ Unpack
+ Required
+ NotRequired
+ ReadOnly
+
+_TypedCacheSpecialForm
+ Literal
+ Annotated
+
+_SpecialGenericAlias
+ Hashable
+ Awaitable
+ Coroutine
+ AsyncIterable
+ AsyncIterator
+ Iterable
+ Iterator
+ Reversible
+ Sized
+ Container
+ Collection
+ AbstractSet
+ MutableSet
+ Mapping
+ MutableMapping
+ Sequence
+ MutableSequence
+ List
+ Deque
+ Set
+ FrozenSet
+ MappingView
+ KeysView
+ ItemsView
+ ValuesView
+ Dict
+ DefaultDict
+ OrderedDict
+ Counter
+ ChainMap
+ Generator
+ AsyncGenerator
+ Type
+
+_TupleType
+ Tuple
+
+_DeprecatedGenericAlias
+ ByteString
+
+_CallableType
+ Callable
