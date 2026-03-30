@@ -1,5 +1,13 @@
 from collections.abc import Iterator
-from typing import Any
+from dataclasses import dataclass, field, InitVar
+import types
+import typing
+from typing import (
+    Any,
+    get_type_hints,
+    get_origin,
+    get_args,
+    )
 
 
 def iter_fields(obj: Any) -> Iterator[str]:
@@ -109,3 +117,38 @@ def decompose(obj: Any, _cache: dict[int, dict[str, Any]] | None = None) -> dict
 
     result["attributes"] = attributes
     return result
+
+def get_hints(obj: types.FunctionType | types.ModuleType | type, namespace: dict[str, Any] | None = None) -> dict[str, Any]:
+    hints: dict[str, Any] = typing.get_type_hints(obj, localns=namespace, globalns=None)
+    return hints
+
+def hint_origin(hint: Any) -> type | Any:
+    if isinstance(hint, type):
+        return hint
+    if isinstance(hint, (types.GenericAlias, typing._SpecialGenericAlias)):
+        return typing.get_origin(hint)
+
+@dataclass
+class Annotation:
+    anno: InitVar[Any]
+
+    parent: Annotation | None = field(default=None)
+    origin: type | Any = field(init=False)
+    args: tuple[Annotation, ...] = field(init=False)
+
+    def __post_init__(self, anno: Any) -> None:
+        self.origin = hint_origin(anno)
+        args = get_args(anno)
+        if args:
+            self.args = (Annotation(anno=arg, parent=self) for arg in args)
+
+
+def annotations(obj: types.FunctionType | types.ModuleType | type, namespace: dict[str, Any] | None = None) -> dict[str, Annotation]:
+    data: dict[str, Annotation] = {}
+    hints: dict[str, Any] = typing.get_type_hints(obj, localns=namespace, globalns=None)
+
+    for field_name, anno in hints.items():
+        data[field_name] = Annotation(anno=anno)
+
+    return data
+
