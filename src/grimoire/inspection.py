@@ -1,9 +1,10 @@
 from collections.abc import Iterator, Iterable, Callable
 from typing import Any, get_type_hints
-from types import SimpleNamespace, LambdaType
+from types import SimpleNamespace
 import inspect
 
 _test = SimpleNamespace(
+    factory=SimpleNamespace,
     name="alice",
     score=97.5,
     active=True,
@@ -25,7 +26,6 @@ _test = SimpleNamespace(
     ],
     dimensions=range(5),
     nothing=None,
-    type=SimpleNamespace,
 )
 
 
@@ -149,19 +149,19 @@ def decompose_attrs(obj: Any, *, _cache: dict[int, dict[str, Any]] | None = None
         return result
 
     if callable(obj):
-        if isinstance(obj, LambdaType):
-            result["class"] = "lambda"
-            return result
-
         result["signature"] = compose_signature(obj)
 
         if obj_class.__name__ == "builtin_function_or_method":
             result["class"] = "builtin_method" if _parent is not None else "builtin_function"
             return result
 
+
     attributes = {}
     for name, value in iter_attributes(obj):
-        attributes[name] = decompose_attrs(value, _cache=_cache, _parent=obj)
+        try:
+            attributes[name] = decompose_attrs(value, _cache=_cache, _parent=obj)
+        except Exception as e:
+            attributes[name] = {"class": type(e).__name__, "value": str(e)}
 
     if attributes:
         result["attributes"] = attributes
@@ -196,7 +196,7 @@ def tree_attrs(obj: Any, *, _name: str | None = None) -> dict[str, Any]:
     for name, value in attr_dispenser():
         key = obj_name + "__" + name + "_" + type(value).__name__.lower()
 
-        if isinstance(value, (bool, int, float, str, bytes)):
+        if value is None or isinstance(value, (bool, int, float, str, bytes)) or inspect.isclass(value):
             res[key] = value
             continue
 
