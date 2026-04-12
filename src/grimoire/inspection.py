@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import inspect
 
 _test = SimpleNamespace(
-    factory=SimpleNamespace,
+    type=SimpleNamespace,
     name="alice",
     score=97.5,
     active=True,
@@ -168,7 +168,7 @@ def decompose_attrs(obj: Any, *, _cache: dict[int, dict[str, Any]] | None = None
     return result
 
 
-def tree_attrs(obj: Any, *, _name: str | None = None) -> dict[str, Any]:
+def tree_attrs(obj: Any, *, _name: str | None = None, incl_types: bool = True) -> dict[str, Any]:
     res: dict[str, Any] = {}
     obj_name: str = _name if _name is not None else type(obj).__name__.lower()
 
@@ -194,13 +194,15 @@ def tree_attrs(obj: Any, *, _name: str | None = None) -> dict[str, Any]:
             yield from iter_attributes(obj)
 
     for name, value in attr_dispenser():
-        key = obj_name + "__" + name + "_" + type(value).__name__.lower()
+        prefix = obj_name + "__" + name
+        suffix = "_" + type(value).__name__.lower()
+        key = (prefix + suffix) if incl_types is True else prefix
 
         if value is None or isinstance(value, (bool, int, float, str, bytes)) or inspect.isclass(value):
             res[key] = value
             continue
 
-        branch = tree_attrs(value, _name=key)
+        branch = tree_attrs(value, _name=key, incl_types=incl_types)
         res.update(branch)
 
     return res
