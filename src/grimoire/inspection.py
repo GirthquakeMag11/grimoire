@@ -1,32 +1,8 @@
 from collections.abc import Iterator, Iterable, Callable
+import collections.abc
 from typing import Any, get_type_hints
 from types import SimpleNamespace
 import inspect
-
-_test = SimpleNamespace(
-    type=SimpleNamespace,
-    name="alice",
-    score=97.5,
-    active=True,
-    tags=["admin", "beta"],
-    counts=(3, 7, 12),
-    meta={"region": "us-west", "tier": 2},
-    profile=SimpleNamespace(
-        age=30,
-        emails=["alice@work.com", "alice@home.net"],
-        prefs=SimpleNamespace(
-            theme="dark",
-            font_size=14,
-            pinned_items=frozenset({101, 202}),
-        ),
-    ),
-    history=[
-        SimpleNamespace(action="login", ts=1700000000),
-        SimpleNamespace(action="upload", ts=1700003600, details={"size_kb": 480}),
-    ],
-    dimensions=range(5),
-    nothing=None,
-)
 
 
 def iter_fields(obj: Any) -> Iterator[str]:
@@ -168,17 +144,17 @@ def decompose_attrs(obj: Any, *, _cache: dict[int, dict[str, Any]] | None = None
     return result
 
 
-def tree_attrs(obj: Any, *, _name: str | None = None, incl_types: bool = True) -> dict[str, Any]:
+def tree_attrs(obj: Any, *, _name: str | None = None, incl_types: bool = True, strip_prefix: bool = True, loose_types: bool = True) -> dict[str, Any]:
     res: dict[str, Any] = {}
     obj_name: str = _name if _name is not None else type(obj).__name__.lower()
 
     def index_as_attrs(seq: Iterable[Any]) -> Iterator[tuple[str, Any]]:
         for idx, item in enumerate(seq):
-            yield (f"{idx!s}", item)
+            yield (str(idx), item)
 
     def keys_as_attrs(data: dict[..., Any]) -> Iterator[tuple[str, Any]]:
         for key, item in data.items():
-            yield (f"{key!s}", item)
+            yield (str(key), item)
 
     def attr_dispenser() -> Iterator[tuple[str, Any]]:
         if isinstance(obj, (bool, int, float, str, bytes)):
@@ -193,16 +169,31 @@ def tree_attrs(obj: Any, *, _name: str | None = None, incl_types: bool = True) -
         else:
             yield from iter_attributes(obj)
 
+    def loose_type(val: Any) -> str:
+        if isinstance(val, (bool, int, float, str, bytes)):
+            return type(val).__name__
+        if val in (None, NotImplemented, ...):
+            return "null"
+        if isinstance(val, collections.abc.Mapping):
+            return "map"
+        if isinstance(val, (collections.abc.Sequence, collections.abc.Iterable)):
+            return "seq"
+        if isinstance(val, type):
+            return "cls"
+        return "obj"
+
     for name, value in attr_dispenser():
-        prefix = obj_name + "__" + name
-        suffix = "_" + type(value).__name__.lower()
+        prefix = (obj_name + "__" + name) if strip_prefix is False else name
+        suffix = "_" + (type(value).__name__.lower() if loose_types is False else loose_type(value))
         key = (prefix + suffix) if incl_types is True else prefix
 
         if value is None or isinstance(value, (bool, int, float, str, bytes)) or inspect.isclass(value):
             res[key] = value
             continue
 
-        branch = tree_attrs(value, _name=key, incl_types=incl_types)
+        branch = tree_attrs(value, _name=key, incl_types=incl_types, loose_types=loose_types, strip_prefix=False)
         res.update(branch)
 
     return res
+
+
