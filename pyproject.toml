@@ -43,7 +43,7 @@ exclude = ["draft"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
-ignore = ["BLE001", "E501"]
+ignore = ["BLE001", "E501", "B903"]
 preview = true
 
 [tool.ruff.lint.per-file-ignores]
