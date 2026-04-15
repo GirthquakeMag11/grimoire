@@ -1,3 +1,4 @@
 /drft/grim/__pycache__
 /src/grim/__pycache__
 /tests/__pycache__
+*.pyc
