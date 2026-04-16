@@ -195,5 +195,3 @@ def tree_attrs(obj: Any, *, _name: str | None = None, incl_types: bool = True, s
         res.update(branch)
 
     return res
-
-
