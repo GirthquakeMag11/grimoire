@@ -6,7 +6,7 @@ import sqlite3 as sql
 import types
 import typing
 from collections.abc import Callable, Iterator
-from dataclasses import MISSING, Field, dataclass, fields, is_dataclass
+from dataclasses import MISSING, Field, dataclass, fields, is_dataclass, field
 from datetime import UTC, datetime
 from functools import cached_property
 from pathlib import Path
@@ -189,6 +189,32 @@ def iter_attributes(obj: Any) -> Iterator[tuple[str, Any]]:
             continue
 
 
+def metafield(
+    *,
+    default: Any = MISSING,
+    default_factory: Any = MISSING,
+    init: bool = True,
+    repr: bool = True,
+    hash: bool | None = None,
+    compare: bool = True,
+    kw_only: Any = MISSING,
+    doc: str | None = None,
+    adapter: Callable[[Any], ...] | None = None,
+    converter: Callable[[bytes], [Any]] | None = None,
+    **metadata: Any
+) -> Field:
+    return field(
+        default=default,
+        default_factory=default_factory,
+        init=init,
+        repr=repr,
+        hash=hash,
+        compare=compare,
+        kw_only=kw_only,
+        doc=doc,
+        metadata={**metadata, "adapter":adapter, "converter": converter},
+    )
+
 
 @dataclass
 class Adapter[T]:
@@ -221,10 +247,6 @@ class TypeNode:
 
     def __hash__(self) -> int:
         return hash(self._id)
-
-    @cached_property
-    def adapters_converters(self) -> tuple[Adapter | Converter, ...]:
-        return (item for item in self.annotated_extras if isinstance(item, (Adapter, Converter)))
 
     @cached_property
     def is_annotated(self) -> bool:
@@ -320,14 +342,12 @@ class FieldNode:
         return iter(self.type.index)
 
     @cached_property
-    def adapters_converters(self) -> tuple[Adapter | Converter, ...]:
-        anno_acs = self[index].adapters_converters
-        meta_acs = (*self.metadata.get("adapters", ()), *self.metadata.get("converters", ()))
-        return (*anno_acs, *meta_acs)
+    def adapter(self) -> Callable[[Any], ...] | None:
+        return self.metadata.get("adapter")
 
-    def acceptable_value(self, value: Any) -> bool:
-        """If 'value' is a valid value for this field."""
-        ...
+    @cached_property
+    def converter(self) -> Callable[[bytes], Any] | None:
+        return self.metadata.get("converter")
 
     @cached_property
     def default(self) -> Any:
@@ -335,7 +355,7 @@ class FieldNode:
             raise AttributeError(f"Field {self._name} does not have a default value")
         return self._field.default
 
-    @property
+    @cached_property
     def has_default(self) -> bool:
         return self._field.default is not MISSING
 
@@ -345,7 +365,7 @@ class FieldNode:
             raise AttributeError(f"Field {self._name} does not have a default value factory")
         return self._field.default_factory
 
-    @property
+    @cached_property
     def has_default_factory(self) -> bool:
         return self._field.default_factory is not MISSING
 
