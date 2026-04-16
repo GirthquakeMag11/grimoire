@@ -1,28 +1,27 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
-from typing import Any
-import inspect
-from .inspection import tree_attrs
+from enum import StrEnum
+import re
+import sqlite3 as sql
+from pathlib import Path
+from typing import get_type_hints, get_origin, get_args
 
+sql.register_adapter(bool, lambda v: int(v))
+sql.register_converter("BOOLEAN", lambda v: bool(int(v)))
+sql.register_adapter(datetime, lambda v: v.isoformat())
+sql.register_converter("DATETIME", lambda v: datetime.fromisoformat(v.decode()))
+sql.register_adapter(UUID, str)
+sql.register_converter("UUID", UUID)
 
-class Record:
-    def __init__(self, obj: Any, loose_types: bool = False) -> None:
-        self.id: int = id(obj)
-        self.type: type = type(obj)
-        self.data: dict[str, Any] = tree_attrs(obj, loose_types=loose_types)
+def _path(p: str | Path) -> Path:
+    return Path(p).resolve()
 
-    def __str__(self) -> str:
-        lines: list[str] = []
-        for k, v in self.data.items():
-            lines.append(f"{k!s}=({str(v) if not inspect.isclass(v) else (f"{v.__module__}.{v.__name__}")})")
-        return "\n".join(lines)
-
-    def __repr__(self) -> str:
-        head: str = f"RECORD(id={self.id!s}, class={self.type.__module__}.{self.type.__name__})"
-        lines: list[str] = [
-            head,
-            f"{"-":-^{len(head)}}",
-            str(self)
-        ]
-        return "\n".join(lines)
+class DatabaseController:
+    def __init__(self, path: str | Path) -> None:
+        self.con: sql.Connection = sql.connect(
+            _path(path),
+            detect_types=sql.PARSE_DECLTYPES,
+            autocommit=False,
+        )
+        self.con.row_factory = sql.Row
+        self.con.execute("PRAGMA foreign_keys = ON")
