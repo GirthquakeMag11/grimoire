@@ -189,12 +189,42 @@ def iter_attributes(obj: Any) -> Iterator[tuple[str, Any]]:
             continue
 
 
+
+@dataclass
+class Adapter[T]:
+    """Dependency injection class for custom datatype sqlite3 adapters."""
+    type: type[T]
+    operator: Callable[[T], ...]
+    registered: bool = False
+
+    def register(self) -> None:
+        if not self.registered:
+            sql.register_adapter(self.type, self.operator)
+            self.registered = True
+
+@dataclass
+class Converter[T]:
+    """Dependency injection class for custom datatype sqlite3 converters."""
+    type: str
+    operator: Callable[[bytes], [T]]
+    registered: bool = False
+
+    def register(self) -> None:
+        if not self.registered:
+            sql.register_conveter(ident(self.type.strip().upper()), self.operator)
+            self.registered = True
+
+
 @dataclass
 class TypeNode:
     _raw: Any
 
     def __hash__(self) -> int:
         return hash(self._id)
+
+    @cached_property
+    def adapters_converters(self) -> tuple[Adapter | Converter, ...]:
+        return (item for item in self.annotated_extras if isinstance(item, (Adapter, Converter)))
 
     @cached_property
     def is_annotated(self) -> bool:
@@ -276,7 +306,7 @@ class TypeNode:
 
 @dataclass
 class FieldNode:
-    _name: str
+    name: str
     _raw: Any
     _field: Field
 
@@ -288,6 +318,16 @@ class FieldNode:
 
     def __iter__(self) -> Iterator[TypeNode]:
         return iter(self.type.index)
+
+    @cached_property
+    def adapters_converters(self) -> tuple[Adapter | Converter, ...]:
+        anno_acs = self[index].adapters_converters
+        meta_acs = (*self.metadata.get("adapters", ()), *self.metadata.get("converters", ()))
+        return (*anno_acs, *meta_acs)
+
+    def acceptable_value(self, value: Any) -> bool:
+        """If 'value' is a valid value for this field."""
+        ...
 
     @cached_property
     def default(self) -> Any:
@@ -341,25 +381,28 @@ class FieldNode:
 
 
 @dataclass
-class DataClassInfoGraph:
-    target: Any
+class DataClassNode[T]:
+    target: T | type[T]
     globalns: dict[str, Any] | None = None
 
     def __getitem__(self, name: str) -> FieldNode:
-        return self._field(name)
+        try:
+            return self.field_entries[name]
+        except KeyError:
+            raise KeyError(f"{self.target.__name__!r} has no field {name!r}") from None
 
     def __len__(self) -> int:
-        return len(self._field_entries)
+        return len(self.field_entries)
 
     def __iter__(self) -> Iterator[tuple[str, FieldNode]]:
-        return iter(self._field_entries.items())
+        return iter(self.field_entries.items())
 
     @cached_property
-    def _resolved_hints(self) -> dict[str, Any]:
+    def resolved_hints(self) -> dict[str, Any]:
         return get_type_hints(self.target, globalns=self.globalns, include_extras=True)
 
     @cached_property
-    def _dataclass(self) -> type:
+    def dataclass(self) -> type[T]:
         if is_dataclass(self.target):
             if isinstance(self.target, type):
                 return self.target
@@ -367,29 +410,15 @@ class DataClassInfoGraph:
         raise TypeError(self.target)
 
     @cached_property
-    def _field_entries(self) -> dict[str, FieldNode]:
+    def field_entries(self) -> dict[str, FieldNode]:
         res = {}
-        for f in fields(self._dataclass):
+        for f in fields(self.dataclass):
             res[f.name] = FieldNode(
-                _name=f.name,
-                _raw=self._resolved_hints[f.name],
+                name=f.name,
+                _raw=self.resolved_hints[f.name],
                 _field=f,
             )
         return res
-
-    def _field(self, name: str) -> FieldNode:
-        try:
-            return self._field_entries[name]
-        except KeyError:
-            raise KeyError(f"{self.target.__name__!r} has no field {name!r}") from None
-
-    @cached_property
-    def fields(self) -> tuple[str, ...]:
-        return tuple(self._field_entries.keys())
-
-    @cached_property
-    def nodes(self) -> tuple[FieldNode, ...]:
-        return tuple(self._field_entries.values())
 
 
 class DataBaseController:
