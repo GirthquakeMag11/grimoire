@@ -28,6 +28,12 @@ class SequenceTransition[T: Hashable]:
     head: T | StartT
     tail: T | EndT
 
+    def __getitem__(self, key: int | slice) -> T | StartT | EndT:
+        return (self.head, self.tail)[key]
+
+    def __iter__(self) -> Iterator[T | StartT | EndT]:
+        return iter((self.head, self.tail))
+
 def iter_transitions[T: Hashable](data: Iterable[T]) -> Iterator[SequenceTransition[T]]:
     data_iter: Iterator[T] = iter(data)
     head: T | SequenceBumperType = SequenceBumperType.START
@@ -37,11 +43,3 @@ def iter_transitions[T: Hashable](data: Iterable[T]) -> Iterator[SequenceTransit
         head = item
 
     yield SequenceTransition(head, SequenceBumperType.END)
-
-def count_transitions[T: Hashable](data: Iterable[T]) -> dict[T, dict[T | SequenceBumperType, int]]:
-    counts: defaultdict[Counter[T | SequenceBumperType]] = defaultdict(Counter)
-
-    for transition in iter_transitions(data):
-        counts[transition.head][transition.tail] += 1
-
-    return {head: dict(tail_count) for head, tail_count in counts.items()}
