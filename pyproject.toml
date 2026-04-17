@@ -7,7 +7,9 @@ authors = [
     { name = "Girthquake", email = "captainpatchwork@gmail.com" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "ipython>=9.12.0",
+]
 
 [build-system]
 requires = ["hatchling"]
