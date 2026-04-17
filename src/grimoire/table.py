@@ -52,6 +52,10 @@ class TypeNode:
         return bool(self.is_class and is_dataclass(self.origin))
 
     @cached_property
+    def is_table_class(self) -> booL:
+        return bool(self.is_data_class and hasattr(self.origin, "__table_spec__"))
+
+    @cached_property
     def is_literal(self) -> bool:
         return self.origin is Literal
 
@@ -120,6 +124,19 @@ class TypeNode:
     @property
     def raw(self) -> Any:
         return self._raw
+
+    @cached_property
+    def primitive_sql_type(self) -> str | None:
+        if self.is_primitive_class:
+            return {
+                bool: "BOOLEAN",
+                str: "TEXT",
+                int: "INTEGER",
+                float: "REAL",
+                bytes: "BLOB",
+                datetime: "DATETIME",
+                UUID: "UUID",
+            }[self.origin]
 
 @dataclass
 class FieldNode:
@@ -209,10 +226,6 @@ class FieldNode:
     def type(self) -> TypeNode:
         return TypeNode(self._raw)
 
-    @cached_property
-    def resolved(self) -> ...:
-        stack = list(reversed(self.type.index))
-
 
 @dataclass
 class ClassNode[T]:
@@ -258,13 +271,41 @@ class ModelTable[T]:
 
 
 @dataclass
+class ColumnSpec:
+    node: FieldNode
+
+    @cached_property
+    def primary_key(self) -> bool:
+        return self.node.metadata.get("PRIMARY_KEY", False)
+
+    @cached_property
+    def autoincrement(self) -> bool:
+        return self.node.metadata.get("AUTOINCREMENT", False)
+
+    @cached_property
+    def not_null(self) -> bool:
+        return self.node.metadata.get("NOT_NULL", False)
+
+    @cached_property
+    def unique_values(self) -> bool:
+        return self.node.metadata.get("UNIQUE_VALUES", False)
+
+
+@dataclass
 class TableSpec[T]:
     node: ClassNode[T]
 
     @staticmethod
+    def create_table(name: str) -> str:
+        return f"CREATE TABLE {ident(name)}" + "({table_params})"
+
+    @staticmethod
+    def create_table_if_not_exists(name: str) -> str:
+        return f"CREATE TABLE IF NOT EXISTS {ident(name)}" + "({table_params})"
+
+    @staticmethod
     def create_and_attach(dataclass: type) -> None:
-        class_node = ClassNode(target=dataclass)
-        table_spec = TableSpec(node=class_node)
+        table_spec = TableSpec(node=ClassNode(target=dataclass))
         setattr(dataclass, "__table_spec__", table_spec)
         return dataclass
 
