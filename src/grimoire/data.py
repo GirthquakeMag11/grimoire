@@ -6,12 +6,33 @@ import sqlite3 as sql
 import types
 import typing
 from collections.abc import Callable, Iterator
-from dataclasses import MISSING, Field, dataclass, fields, is_dataclass, field
 from datetime import UTC, datetime
 from functools import cached_property
 from pathlib import Path
-from typing import Annotated, Any, Final, Literal, NewType, get_args, get_origin, get_type_hints
 from uuid import UUID
+from dataclasses import (
+    MISSING,
+    Field,
+    dataclass,
+    fields as dc_fields,
+    is_dataclass,
+    field,
+)
+from typing import (
+    Annotated,
+    Any,
+    Final,
+    Literal,
+    NewType,
+    get_args,
+    get_origin,
+    get_type_hints,
+    TypedDict,
+    Required,
+    NotRequired,
+    overload,
+    dataclass_transform,
+)
 
 sql.register_adapter(bool, lambda v: int(v))
 sql.register_converter("BOOLEAN", lambda v: bool(int(v)))
@@ -189,6 +210,43 @@ def iter_attributes(obj: Any) -> Iterator[tuple[str, Any]]:
             continue
 
 
+def copy_namespace(obj: Any) -> dict[str, Any]:
+    return dict(iter_attributes(obj))
+
+
+class DataClassParams(TypedDict, total=True):
+    cls_name: str
+    fields: list[tuple[str, Any, Field[Any]]]
+    bases: tuple[type, ...]
+    namespace: dict[str, Any]
+    init: bool
+    repr: bool
+    eq: bool
+    order: bool
+    unsafe_hash: bool
+    frozen: bool
+    match_args: bool
+    kw_only: bool
+    slots: bool
+    weakref_slot: bool
+    module: str | None
+    decorator: Callable[..., type]
+
+
+class FieldParams(TypedDict, total=False):
+    name: str
+    type: Any
+    default: Any
+    default_factory: Callable[[], Any]
+    init: bool
+    repr: bool
+    hash: bool | None
+    compare: bool
+    kw_only: bool
+    doc: str
+    metadata: dict[Any, Any]
+
+
 @dataclass
 class Adapter[T]:
     """Dependency injection class for custom datatype sqlite3 adapters."""
@@ -298,6 +356,10 @@ class TypeNode:
 
         return base
 
+    @property
+    def raw(self) -> Any:
+        return self._raw
+
 
 @dataclass
 class FieldNode:
@@ -315,12 +377,27 @@ class FieldNode:
         return iter(self.type.index)
 
     @cached_property
-    def adapter(self) -> Callable[[Any], ...] | None:
-        return self.metadata.get("adapter")
+    def params(self) -> FieldParams:
+        data: FieldParams = FieldParams(
+            name=self.name,
+            type=self.type._raw,
+            init=self.init,
+            repr=self.repr,
+            hash=self.hash,
+            compare=self.compare,
+            kw_only=self.kw_only,
+            doc=self.doc,
+            metadata=self.metadata,
+        )
+        if self.has_default:
+            data["default"] = self.default
+        elif self.has_default_factory:
+            data["default_factory"] = self.default_factory
+        return data
 
     @cached_property
-    def converter(self) -> Callable[[bytes], Any] | None:
-        return self.metadata.get("converter")
+    def field_array_entry(self) -> tuple[str, Any, Field]:
+        return (self.name, self.type.raw, field(**self.params))
 
     @cached_property
     def default(self) -> Any:
@@ -405,7 +482,7 @@ class DataClassNode[T]:
     @cached_property
     def field_entries(self) -> dict[str, FieldNode]:
         res = {}
-        for f in fields(self.dataclass):
+        for f in dc_fields(self.dataclass):
             res[f.name] = FieldNode(
                 name=f.name,
                 _raw=self.resolved_hints[f.name],
@@ -413,28 +490,50 @@ class DataClassNode[T]:
             )
         return res
 
+    @cached_property
+    def params(self) -> DataClassParams:
+        dc_params = self.dataclass.__dataclass_params__
+        return DataClassParams(
+            cls_name=self.dataclass.__name__,
+            fields=[f.field_array_entry for f in self.field_entries.values()],
+            bases=tuple(b for b in self.dataclass.__bases__ if b is not object),
+            namespace=copy_namespace(self.dataclass),
+            init=dc_params.init,
+            repr=dc_params.repr,
+            eq=dc_params.eq,
+            order=dc_params.order,
+            unsafe_hash=dc_params.unsafe_hash,
+            frozen=dc_params.frozen,
+            match_args=getattr(dc_params, 'match_args', True),
+            kw_only=getattr(dc_params, 'kw_only', False),
+            slots=bool('__slots__' in self.dataclass.__dict__),
+            weakref_slot=getattr(dc_params, 'weakref_slot', False),
+            module=self.dataclass.__module__,
+            decorator=dataclass,
+        )
 
-@dataclass
-class DataClassBuilder:
-    name: str
-    fields: Iterable[str | tuple[str, type] | tuple[str, type, Field]]
-    bases: tuple[type, ...] = field(default_factory=tuple)
-    namespace: dict[str, Any] = field(default_factory=dict)
-    init: bool = True
-    repr: bool = True
-    eq: bool = True
-    order: bool = True
-    unsafe_hash: bool = False
-    frozen: bool = False
-    match_args: bool = True
-    kw_only: bool = False
-    slots: bool = False
-    weakref_slot: bool = False
-    module: str | None = None
-    decorator: Callable[[...], type] = dataclass
+    def construct_dataclass(self) -> type:
+        p = self.params
+        return make_dataclass(
+            cls_name=p['name'],
+            fields=p['fields'],
+            bases=p['bases'],
+            namespace=p['namespace'],
+            init=p['init'],
+            repr=p['repr'],
+            eq=p['eq'],
+            order=p['order'],
+            unsafe_hash=p['unsafe_hash'],
+            frozen=p['frozen'],
+            match_args=p['match_args'],
+            kw_only=p['kw_only'],
+            slots=p['slots'],
+            weakref_slot=p['weakref_slot'],
+            module=p['module'],
+            decorator=p['decorator'],
+        )
 
-
-class DataBaseController:
+class DataBase:
     def __init__(self, path: str | Path) -> None:
         self.con: sql.Connection = sql.connect(
             _path(path),
@@ -443,3 +542,74 @@ class DataBaseController:
         )
         self.con.row_factory = sql.Row
         self.con.execute("PRAGMA foreign_keys = ON")
+        self.dc_nodes: dict[str, type] = {}
+
+    def ensure_dc_node(self, dataclass: type, table: str) -> None:
+        self.dc_nodes[table] = DataClassNode(dataclass)
+
+    @overload
+    def tableclass[T](self, cls: type[T], /, table: str) -> type[T]: ...
+
+    @overload
+    def tableclass[T](
+        self,
+        table: str,
+        *,
+        init: bool = True,
+        repr: bool = True,
+        eq: bool = True,
+        order: bool = False,
+        unsafe_hash: bool = False,
+        frozen: bool = False,
+        match_args: bool = True,
+        kw_only: bool = False,
+        slots: bool = False,
+        weakref_slot: bool = False,
+    ) -> Callable[[type[T]], type[T]]: ...
+
+    @dataclass_transform(field_specifiers=(field, Field))
+    def tableclass[T](
+        self,
+        cls: type[T] | None = None,
+        /,
+        table: str,
+        *,
+        init: bool = True,
+        repr: bool = True,
+        eq: bool = True,
+        order: bool = False,
+        unsafe_hash: bool = False,
+        frozen: bool = False,
+        match_args: bool = True,
+        kw_only: bool = False,
+        slots: bool = False,
+        weakref_slot: bool = False,
+    ) -> type[T] | Callable[[type[T]], type[T]]:
+
+        def ensure(final_cls) -> None:
+            self.ensure_dc_node(final_cls, table)
+
+        if hasattr(cls, "__dataclass_fields__"):
+            ensure(cls)
+            return cls
+
+        def wrap(cls: type[T]) -> type[T]:
+            cls = dataclass(
+                cls,
+                init=init,
+                repr=repr,
+                eq=eq,
+                order=order,
+                unsafe_hash=unsafe_hash,
+                frozen=frozen,
+                match_args=match_args,
+                kw_only=kw_only,
+                slots=slots,
+                weakref_slot=weakref_slot,
+            )
+            ensure(cls)
+            return cls
+
+        if cls is not None:
+            return wrap(cls)
+        return wrap
