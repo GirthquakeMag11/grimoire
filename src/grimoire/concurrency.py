@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Iterator
-from typing import Any, overload
+from typing import Any
+
 
 async def achain(*iterables: Iterator[Any] | AsyncIterator[Any]) -> AsyncIterator[Any]:
     for iterable in iterables:
@@ -11,4 +12,3 @@ async def achain(*iterables: Iterator[Any] | AsyncIterator[Any]) -> AsyncIterato
 
         elif isinstance(iterable, Iterator):
             yield from iterable
-
