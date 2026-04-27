@@ -1,67 +1,17 @@
 from __future__ import annotations
 
 import inspect
-import re
-import sqlite3 as sql
 import types
-import typing
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
-from functools import cached_property
-from pathlib import Path
-from uuid import UUID
-from dataclasses import (
-    MISSING,
-    Field,
-    dataclass,
-    fields as dc_fields,
-    is_dataclass,
-    field,
-)
 from typing import (
-    Annotated,
     Any,
-    Final,
-    Literal,
-    NewType,
-    get_args,
-    get_origin,
     get_type_hints,
-    TypedDict,
-    Required,
-    NotRequired,
-    overload,
-    dataclass_transform,
 )
-
-sql.register_adapter(bool, lambda v: int(v))
-sql.register_converter("BOOLEAN", lambda v: bool(int(v)))
-sql.register_adapter(datetime, lambda v: v.isoformat())
-sql.register_converter("DATETIME", lambda v: datetime.fromisoformat(v.decode()))
-sql.register_adapter(UUID, str)
-sql.register_converter("UUID", UUID)
-
-VALID_IDENT: Final[re.Pattern] = re.compile(r"^[a-z_][a-z0-9_]*$")
-
-Identifier: type[str] = NewType("Identifier", str)
-
-type Primitive = bool | str | int | float | bytes | datetime | UUID
-
-
-def _path(p: str | Path) -> Path:
-    return Path(p).resolve()
 
 
 def utcnow() -> datetime:
     return datetime.now(UTC)
-
-
-def ident(name: str | Identifier) -> Identifier:
-    """Validate and return a safe SQL identifier."""
-    cleaned = name.strip().casefold()
-    if not VALID_IDENT.match(cleaned):
-        raise ValueError(f"Invalid SQL identifier: {name!r}")
-    return Identifier(cleaned)
 
 
 def compose_signature(obj: Callable[[...], ...]) -> dict[str, Any]:
@@ -100,54 +50,6 @@ def compose_signature(obj: Callable[[...], ...]) -> dict[str, Any]:
             signature.setdefault("parameters", {})[keyword] = parameter
 
     return signature
-
-
-def decompose_attrs(
-    obj: Any, *, _cache: dict[int, dict[str, Any]] | None = None, _parent: Any | None = None
-) -> dict[str, Any]:
-    if _cache is None:
-        _cache = {}
-
-    obj_id = id(obj)
-
-    if obj_id in _cache:
-        return _cache[obj_id]
-
-    obj_class = type(obj)
-    result: dict[str, Any] = {"class": obj_class}
-    _cache[obj_id] = result
-
-    if obj is None or isinstance(obj, (bool, int, float, str, bytes)):
-        result["value"] = obj
-        return result
-
-    if isinstance(obj, (list, tuple, set, frozenset)):
-        result["data"] = [decompose_attrs(item, _cache=_cache, _parent=obj) for item in obj]
-        return result
-
-    if isinstance(obj, dict):
-        result["data"] = {
-            str(k): decompose_attrs(v, _cache=_cache, _parent=obj) for k, v in obj.items()
-        }
-        return result
-
-    if callable(obj):
-        result["signature"] = compose_signature(obj)
-
-        if obj_class.__name__ == "builtin_function_or_method":
-            result["class"] = "builtin_method" if _parent is not None else "builtin_function"
-            return result
-
-    attributes = {}
-    for name, value in iter_attributes(obj):
-        try:
-            attributes[name] = decompose_attrs(value, _cache=_cache, _parent=obj)
-        except Exception as e:
-            attributes[name] = {"class": type(e).__name__, "value": str(e)}
-
-    if attributes:
-        result["attributes"] = attributes
-    return result
 
 
 def iter_fields(obj: Any) -> Iterator[str]:
@@ -210,3 +112,8 @@ def iter_attributes(obj: Any) -> Iterator[tuple[str, Any]]:
             continue
 
 
+<<<<<<< Updated upstream
+=======
+def copy_namespace(obj: Any) -> types.SimpleNamespace:
+    return types.SimpleNamespace(iter_attributes(obj))
+>>>>>>> Stashed changes
