@@ -105,26 +105,25 @@ def iter_attributes(obj: Any) -> Iterator[tuple[str, Any]]:
 def create_parameter(name: str, kind: str, annotation: Any = MISSING, default: Any = MISSING) -> Parameter:
     p_kind: ParameterKind
     match kind.strip().casefold():
-        case "positional_only":
+        case "positional_only" | "po":
             p_kind = ParameterKind.POSITIONAL_ONLY
-        case "positional_or_keyword":
+        case "positional_or_keyword" | "pok":
             p_kind = ParameterKind.POSITIONAL_OR_KEYWORD
-        case "var_positional":
+        case "var_positional" | "vp":
             p_kind = ParameterKind.VAR_POSITIONAL
-        case "keyword_only":
+        case "keyword_only" | "ko":
             p_kind = ParameterKind.KEYWORD_ONLY
-        case "var_keyword":
+        case "var_keyword" | "vk":
             p_kind = ParameterKind.VAR_KEYWORD
         case _:
             raise ValueError(kind)
 
-    factory = partial(Parameter, name, p_kind)
-    kwargs = {
-        "annotation": annotation if annotation is not MISSING else Parameter.empty,
-        "default": default if default is not MISSING else Parameter.empty,
-    }
-    return Parameter(name, p_kind, **kwargs)
-
+    return Parameter(
+        name,
+        p_kind,
+        annotation=annotation if annotation is not MISSING else Parameter.empty,
+        default=default if default is not MISSING else Parameter.empty,
+        )
 
 def create_signature(*parameters: Parameter, return_annotation: Any = MISSING) -> Signature:
     return Signature(
@@ -132,9 +131,51 @@ def create_signature(*parameters: Parameter, return_annotation: Any = MISSING) -
         return_annotation=return_annotation if return_annotation is not MISSING else Parameter.empty,
     )
 
+
+@dataclass
+class ConstraintBase[T]:
+    target_type: type[T] | MissingType = MISSING
+    target_base: type[type[T]] | MissingType = MISSING
+    max_val: T | MissingType = MISSING
+    min_val: T | MissingType = MISSING
+    is_val: T | MissingType = MISSING
+    predicate: Callable[[T], bool] | MissingType = MISSING
+
+    def __post_init__(self) -> None:
+        if self.target_type is MISSING:
+            if self.is_val is not MISSING:
+                self.target_type = type(self.is_val)
+            elif self.max_val is not MISSING:
+                self.target_type = type(self.max_val)
+            elif self.min_val is not MISSING:
+                self.target_type = type(self.min_val)
+
+    def __call__(self, val: Any) -> bool:
+        if self.target_type is not MISSING:
+            if not isinstance(val, self.target_type):
+                return False
+        if self.target_base is not MISSING:
+            if not issubclass(val, self.target_base):
+                return False
+        if self.max_val is not MISSING:
+            if val > self.max_val:
+                return False
+        if self.min_val is not MISSING:
+            if val < self.min_val:
+                return False
+        if self.predicate is not MISSING:
+            return self.predicate(val)
+        return True
+
+
 @dataclass
 class TypeNode:
+    _parent: Any
     target: Any
+
+    def __repr__(self) -> str:
+        template = "type {name}{type_params} = {value}"
+        ...
 
     @cached_property
     def name(self) -> str | None:
@@ -220,10 +261,11 @@ class TypeNode:
     def args(self) -> tuple[TypeNode, ...]:
         if self.is_literal:
             return ()
-        return tuple(TypeNode(a) for a in get_args(self.inner_type))
+        return tuple(TypeNode(self, a) for a in get_args(self.inner_type) if a is not type(None))
 
 @dataclass
 class FieldNode:
+    _parent: Any
     target: Any
 
     @cached_property
@@ -233,6 +275,19 @@ class FieldNode:
         return None
 
     @cached_property
+    def has_default(self) -> bool:
+        if self.is_param:
+            return (self.target.default is not Parameter.empty)
+        elif self.is_field:
+            return (self.target.default is not MISSING)
+
+    @cached_property
+    def default(self) -> Any:
+        if self.has_default:
+            return self.target.default
+        return MISSING
+
+    @cached_property
     def is_param(self) -> bool:
         return isinstance(self.target, Parameter)
 
@@ -240,17 +295,57 @@ class FieldNode:
     def is_field(self) -> bool:
         return isinstance(self.target, Field)
 
+    @cached_property
+    def type(self) -> TypeNode | MissingType:
+        if self.is_param:
+            if self.target.annotation is Parameter.empty:
+                return MISSING
+            return TypeNode(self, self.target.annotation)
+        elif self.is_field:
+            return TypeNode(self, self.target.type)
+
 
 @dataclass
-class SignatureNode:
+class CallableNode:
+    _parent: Any
     target: Any
 
     @cached_property
     def parameters(self) -> tuple[FieldNode, ...]:
-        return tuple(FieldNode(value) for value in inspect_signature(self.target).parameters)
+        return tuple(FieldNode(self, value) for value in inspect_signature(self.target, eval_str=True).parameters)
 
     @cached_property
-    def return_annotation(self) -> TypeNode | MISSING:
+    def return_annotation(self) -> TypeNode | MissingType:
         if (anno := get_type_hints(self.target, include_extras=True).get("return", None)) is not None:
-            return TypeNode(anno)
+            return TypeNode(self, anno)
         return MISSING
+
+
+@dataclass
+class ParsedType:
+    ...
+
+@dataclass
+class ParsedField:
+    ...
+
+@dataclass
+class ParsedMethod:
+    ...
+
+@dataclass
+class ParsedFunction:
+    ...
+
+@dataclass
+class ParsedClass:
+    ...
+
+@dataclass
+class ParsedInstance:
+    ...
+
+@dataclass
+class GraphParse:
+    ...
+
