@@ -3,6 +3,9 @@ from __future__ import annotations
 from annotationlib import (
     Format,
 )
+from collections import (
+    UserDict,
+)
 from collections.abc import (
     Callable,
     Iterable,
@@ -39,6 +42,8 @@ from typing import (  # type: ignore[attr-defined]
     _TypedDictMeta,
     cast,
     get_type_hints,
+    Protocol,
+    _ProtocolMeta,
 )
 
 from .typenode import TypeNode
@@ -234,3 +239,4 @@ def typeddict_from(
             readonly.add(name)
 
     return construct_typeddict(name, module, annotations, total, required, optional, readonly)
+
