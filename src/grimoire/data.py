@@ -129,7 +129,9 @@ def iter_fields[T](obj: T) -> Iterator[str]:
         yield from _from_class(cls)
 
 
-def iter_attributes(obj: Any, *, static: bool = False) -> Iterator[tuple[str, Any]]:
+def iter_attributes(
+    obj: Any, *, static: bool = False, default: Any = MISSING
+) -> Iterator[tuple[str, Any]]:
     """Yield (name, value) pairs for public fields that can be read via getattr.
 
     Skips the "mro" attribute on type objects.
@@ -247,5 +249,3 @@ def validate_typeddict(td: type[dict[str, Any]], data: dict[str, Any]) -> None:
     missing = required - data.keys()
     if missing:
         raise TypeError(f"Missing required keys: {missing}")
-
-    
