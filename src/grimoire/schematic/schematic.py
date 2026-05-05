@@ -1,35 +1,50 @@
-from inspect import isclass
-from enum import Enum
-from abc import ABC
 from collections.abc import (
     Callable,
+    Iterable,
+    Iterator,
 )
+from dataclasses import (
+    is_dataclass,
+)
+from enum import Enum
 from functools import (
     cached_property,
 )
-from typing import (
-    Final,
-    Any,
-    Annotated,
-    Literal,
-    NotRequired,
-    ReadOnly,
-    Required,
-    Union,
-    get_args,
-    get_origin,
-    cast,
+from inspect import (
+    getattr_static,
+    isclass,
+)
+from sys import (
+    _getframe as get_frame,
+)
+from sys import (
+    _getframemodulename as get_frame_module_name,
 )
 from types import (
-    LambdaType,
     FunctionType,
+    LambdaType,
     MethodType,
     TypeAliasType,
     UnionType,
 )
-from sys import (
-    _getframe as get_frame,
-    _getframemodulename as get_frame_module_name,
+from typing import (
+    Annotated,
+    Any,
+    Final,
+    Literal,
+    NotRequired,
+    Protocol,
+    ReadOnly,
+    Required,
+    TypedDict,
+    Union,
+    _TypedDictMeta,
+    cast,
+    dataclass_transform,
+    get_args,
+    get_origin,
+    get_type_hints,
+    runtime_checkable,
 )
 
 
@@ -42,9 +57,7 @@ class MissingTypeAnnotationError(BaseException):
 
 class RedundantParamaterError(BaseException):
     def __init__(self, parameter_name: str, got: int, expected: int = 1) -> None:
-        super().__init__(
-            f"{parameter_name = }, {expected = }, {got = }"
-        )
+        super().__init__(f"{parameter_name = }, {expected = }, {got = }")
 
 
 class MissingType(Enum):
@@ -58,14 +71,18 @@ def get_module_name(obj: Any) -> str:
     obj_type: type[Any] = obj if isinstance(obj, type) else type(obj)
     return obj_type.__module__
 
+
 def islambda(obj: Any) -> bool:
     return (type(obj) is LambdaType) and (getattr(obj, "__name__", None) == "<lambda>")
+
 
 def isfunction(obj: Any) -> bool:
     return (type(obj) is FunctionType) and (getattr(type(obj), "__name__", None) == "function")
 
+
 def ismethod(obj: Any) -> bool:
     return (type(obj) is MethodType) and (getattr(type(obj), "__name__", None) == "method")
+
 
 def get_type_name[T](obj: T | type[T]) -> str:
     if islambda(obj):
@@ -79,6 +96,7 @@ def get_type_name[T](obj: T | type[T]) -> str:
     else:
         return obj.__class__.__name__
 
+
 def caller_module_name(*, depth: int = 1, default: str = "__main__") -> str:
     try:
         return get_frame_module_name(depth + 1) or default
@@ -90,6 +108,7 @@ def caller_module_name(*, depth: int = 1, default: str = "__main__") -> str:
         pass
     return default
 
+
 def iter_fields[T](obj: T) -> Iterator[str]:
     """Yield unique public field names discoverable from an object and its MRO.
 
@@ -100,7 +119,7 @@ def iter_fields[T](obj: T) -> Iterator[str]:
     Respects encapsulation and avoids private namespaces.
     """
     seen: set[str] = set()
-    objtype: type[T] = obj if inspect_isclass(obj) else type(obj)
+    objtype: type[T] = obj if isclass(obj) else type(obj)
 
     def _is_public(name: str) -> bool:
         return not name.startswith("_")
@@ -135,13 +154,14 @@ def iter_fields[T](obj: T) -> Iterator[str]:
     for cls in objtype.__mro__:
         yield from _from_class(cls)
 
+
 def iter_type_annotations[T](obj: T | type[T]) -> Iterator[tuple[str, Any]]:
     target: type[T] = obj if isinstance(obj, type) else type(obj)
     hints: dict[str, Any] = {}
     try:
         hints = get_type_hints(target, include_extras=True)
     except TypeError as e:
-        if "does not have annotations" in str(e) and strict is True:
+        if "does not have annotations" in str(e):
             raise MissingTypeAnnotationError(get_type_name(obj), *iter_fields(obj)) from None
 
     for field_name in iter_fields(obj):
@@ -152,7 +172,10 @@ def iter_type_annotations[T](obj: T | type[T]) -> Iterator[tuple[str, Any]]:
 
         yield (field_name, hints.get(field_name, Any))
 
-def iter_attributes(obj: Any, *, static: bool = False, default: Any = MISSING) -> Iterator[tuple[str, Any]]:
+
+def iter_attributes(
+    obj: Any, *, static: bool = False, default: Any = MISSING
+) -> Iterator[tuple[str, Any]]:
     """Yield (name, value) pairs for public fields that can be read via getattr.
 
     Skips the "mro" attribute on type objects.
@@ -166,6 +189,7 @@ def iter_attributes(obj: Any, *, static: bool = False, default: Any = MISSING) -
         if ismethod(value) or ismethod(type_value):
             continue
         yield (field_name, value)
+
 
 def construct_typeddict(
     name: str,
@@ -193,6 +217,7 @@ def construct_typeddict(
         ),
     )
 
+
 def validate_typeddict(td: type[dict[str, Any]], data: dict[str, Any]) -> None:
     hints = get_type_hints(td, include_extras=True)
     required = td.__required_keys__
@@ -204,6 +229,7 @@ def validate_typeddict(td: type[dict[str, Any]], data: dict[str, Any]) -> None:
     missing = required - data.keys()
     if missing:
         raise TypeError(f"Missing required keys: {missing}")
+
 
 class TypeNode:
     def __init__(self, *, target: Any, parent: Any = MISSING) -> None:
@@ -232,7 +258,7 @@ class TypeNode:
 
     @cached_property
     def is_class(self) -> bool:
-        return inspect_isclass(self.origin)
+        return isclass(self.origin)
 
     @cached_property
     def is_dataclass(self) -> bool:
@@ -308,6 +334,7 @@ class TypeNode:
             return ()
         return tuple(TypeNode(self, a) for a in get_args(self.inner_type) if a is not type(None))
 
+
 class FieldNode:
     def __init__(self, default: Any, default_factory: Callable[[], Any] | MissingType) -> None:
         self.default: Any = default
@@ -339,13 +366,14 @@ class FieldNode:
 
     @property
     def has_default(self) -> bool:
-        return (self.default is not MISSING)
+        return self.default is not MISSING
 
     @property
     def has_default_factory(self) -> bool:
-        return (self.default_factory is not MISSING)
+        return self.default_factory is not MISSING
 
-def field(
+
+def fieldnode(
     *,
     default: Any = MISSING,
     default_factory: Callable[[], Any] | MissingType = MISSING,
@@ -355,12 +383,30 @@ def field(
         default=default,
         default_factory=default_factory,
         primary_key=primary_key,
-        )
+    )
 
-class SchematicMeta(type):
 
-    def __new__(mcs, name: str, bases: tuple[type, ...], namespace: dict[str, Any], **kwargs: Any) -> type:
+@runtime_checkable
+class _SchematicProtocol(Protocol):
+    __field_nodes__: dict[str, FieldNode]
+    __total__: bool
+    __defaults__: dict[str, Any]
+    __default_factories__: dict[str, Callable[[], Any]]
+    __annotations__: dict[str, Any]
+    __primary_key__: tuple[str, FieldNode]
+    __spec__: type[dict[str, Any]]
+
+
+class _SchematicMeta(type):
+    def __new__(
+        mcs, name: str, bases: tuple[type, ...], namespace: dict[str, Any], **kwargs: Any
+    ) -> type:
         return super().__new__(mcs, name, bases, namespace)
+
+    def __init__(
+        cls, name: str, bases: tuple[type, ...], namespace: dict[str, Any], **kwargs: Any
+    ) -> type:
+        super().__init__(name, bases, namespace, **kwargs)
 
     def __call__(cls, **kwargs: Any) -> ...:
         data = cls.__defaults__.copy()
@@ -370,28 +416,33 @@ class SchematicMeta(type):
         try:
             validate_typeddict(cls.__spec__, data)
         except TypeError:
-            raise ValueError(f"Provided keywords does not match specification as defined on {cls.__name__}")
-        new_instance = cls.__new__()
+            raise ValueError(
+                f"Provided keywords does not match specification as defined on {cls.__name__}"
+            ) from None
+        new_instance = cls.__new__()  # type: ignore[call-arg]
         new_instance.__dict__.update(data)
         return new_instance
 
-    @property
+    @cached_property
     def required_keys(cls) -> frozenset[str]:
-        return cls.__spec__.__required_keys__
+        assert hasattr(cls, "__spec__")
+        return cast(frozenset[str], cls.__spec__.__required_keys__)
 
-    @property
+    @cached_property
     def optional_keys(cls) -> frozenset[str]:
-        return cls.__spec__.__optional_keys__
+        assert hasattr(cls, "__spec__")
+        return cast(frozenset[str], cls.__spec__.__optional_keys__)
 
-    @property
+    @cached_property
     def readonly_keys(cls) -> frozenset[str]:
-        return cls.__spec__.__readonly_keys__
+        assert hasattr(cls, "__spec__")
+        return cast(frozenset[str], cls.__spec__.__readonly_keys__)
 
-def schematic[T](
-    cls: type[T],
-    total: bool = False,
-    closed: bool = True
-) -> type[T]:
+
+@dataclass_transform(field_specifiers=(FieldNode, fieldnode))
+def schematic(
+    cls: type[_SchematicProtocol], total: bool = False, closed: bool = True
+) -> _SchematicMeta:
     namespace: dict[str, Any] = dict(vars(cls))
 
     defaults: dict[str, Any] = {}
@@ -403,7 +454,7 @@ def schematic[T](
 
     annotations: dict[str, Any] = {}
 
-    primary_key: FieldNode | None = None
+    primary_key: tuple[str, FieldNode] | None = None
 
     for fname, fnode in namespace["__field_nodes__"].items():
         annotations[fname] = fnode.type
@@ -412,11 +463,11 @@ def schematic[T](
             if primary_key is not None:
                 raise RedundantParamaterError("primary_key", 2)
             else:
-                primary_key = fnode
+                primary_key = (fname, fnode)
 
         if fnode.has_default:
             defaults[fname] = fnode.default
-        elif field.has_default_factory:
+        elif fnode.has_default_factory:
             default_factories[fname] = fnode.default_factory
 
         if fnode.required or (total is True and not fnode.not_required):
@@ -434,22 +485,20 @@ def schematic[T](
     namespace["__defaults__"] = defaults
     namespace["__default_factories__"] = default_factories
     namespace["__annotations__"] = annotations
-    namespace["__primary_key__"] = primary_key
-    namespace["__spec__"] = (
-        construct_typeddict(
-            name=f"{cls.__name__}Spec",
-            module=cls.__module__,
-            annotations=annotations,
-            required_keys=required,
-            optional_keys=optional,
-            readonly_keys=readonly,
-        )
+    namespace["__primary_key__"] = ()
+    namespace["__spec__"] = construct_typeddict(
+        name=f"{cls.__name__}Spec",
+        module=cls.__module__,
+        annotations=annotations,
+        required_keys=required,
+        optional_keys=optional,
+        readonly_keys=readonly,
     )
 
     schematic: _SchematicMeta = _SchematicMeta(
         name=cls.__name__,
         bases=cls.__bases__,
         namespace=namespace,
-        )
+    )
 
-    return cast(type[T], schematic)
+    return schematic
